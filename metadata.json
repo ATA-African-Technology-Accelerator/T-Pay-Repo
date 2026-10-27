@@ -1,0 +1,6 @@
+{
+  "name": "T-Pay Mobile - Smart & Offline Banking",
+  "description": "T-Pay mobile banking app featuring swipable T-Pay Checking, T-Pay Savings, and T-Pay Offline Checking accounts, center send-receive action hub with hold-to-speak AI assistant, and Bluetooth peer discovery payments.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
