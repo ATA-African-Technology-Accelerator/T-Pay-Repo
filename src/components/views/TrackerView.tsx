@@ -35,6 +35,7 @@ import {
   KoropeSeat,
 } from '../../types/banking';
 import { soundEffects } from '../../utils/audio';
+import { container } from '../../../core/container';
 
 interface TrackerViewProps {
   onBackToDashboard: () => void;
@@ -69,104 +70,120 @@ export function TrackerView({
   const [isCollecting, setIsCollecting] = useState(false);
   const [driverFeedback, setDriverFeedback] = useState<string | null>(null);
 
-  // Case 1 Action: "Collect 1000 for Coke" (Coke is ₦500 -> 2 bottles sold)
-  const handleCollectCoke1k = () => {
+  // Case 1 Action: "Collect 1000 for Coke" (DDD PriceToQuantityCalculator: ₦1,000 / ₦500 = 2 bottles)
+  const handleCollectCoke1k = async () => {
     soundEffects.playGateSound();
-    const coke = inventory.find((i) => i.id === 'item-coke');
-    if (!coke) return;
 
-    const bottlesSold = 2; // ₦1,000 / ₦500 per bottle = 2
-    if (coke.stockQuantity < bottlesSold) {
-      setMerchantFeedback('Insufficient Coke stock!');
-      setTimeout(() => setMerchantFeedback(null), 3000);
-      return;
-    }
-
-    setInventory((prev) =>
-      prev.map((item) =>
-        item.id === 'item-coke'
-          ? {
-              ...item,
-              stockQuantity: item.stockQuantity - bottlesSold,
-              lastUpdated: 'Just now',
-            }
-          : item
-      )
-    );
-
-    const newSale: MerchantSaleRecord = {
-      id: `sale-${Date.now()}`,
-      itemName: 'Coke (50cl Pet)',
-      quantitySold: bottlesSold,
-      totalAmount: 1000,
+    const domainResult = await container.processVoiceSaleUseCase.execute({
+      spokenQuery: 'collect one thousand for coke',
+      matchedItemName: 'coke',
+      currencyAmount: 1000,
       paymentMethod: 'bluetooth_escrow',
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    };
+    });
 
-    setSales((prev) => [newSale, ...prev]);
-    setMerchantFeedback('Sold 2 bottles of Coke for ₦1,000. Inventory updated (-2 bottles).');
+    if (domainResult.isSuccess) {
+      const data = domainResult.getValue();
+      setInventory((prev) =>
+        prev.map((item) =>
+          item.id === 'item-coke'
+            ? {
+                ...item,
+                stockQuantity: data.remainingStock,
+                lastUpdated: 'Just now',
+              }
+            : item
+        )
+      );
 
-    // Speech readout for accessibility (no typing required)
-    if ('speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance('Sold 2 bottles of Coke. Remaining in stock: ' + (coke.stockQuantity - bottlesSold));
-      utterance.rate = 1.0;
-      window.speechSynthesis.speak(utterance);
+      const newSale: MerchantSaleRecord = {
+        id: data.saleId,
+        itemName: data.itemName,
+        quantitySold: data.unitsSold,
+        totalAmount: 1000,
+        paymentMethod: 'bluetooth_escrow',
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      };
+
+      setSales((prev) => [newSale, ...prev]);
+      setMerchantFeedback(data.spokenConfirmation);
+
+      // Speech readout for accessibility (no typing required)
+      if ('speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(data.spokenConfirmation);
+        utterance.rate = 1.0;
+        window.speechSynthesis.speak(utterance);
+      }
+
+      setTimeout(() => setMerchantFeedback(null), 4000);
+    } else {
+      setMerchantFeedback(domainResult.error || 'Sale failed');
+      setTimeout(() => setMerchantFeedback(null), 3000);
     }
-
-    setTimeout(() => setMerchantFeedback(null), 4000);
   };
 
-  // Case 1 Action: Voice Inventory setup simulation
-  const handleSimulateVoiceInventorySetup = () => {
+  // Case 1 Action: Voice Inventory setup simulation (DDD SpokenInventoryParser)
+  const handleSimulateVoiceInventorySetup = async () => {
     soundEffects.playSuccess();
-    setInventory((prev) => [
-      {
-        id: `item-sprite-${Date.now()}`,
-        name: 'Sprite Pet (50cl)',
-        unitPrice: 500,
-        unitType: 'bottle',
-        stockQuantity: 36,
-        category: 'Beverages',
-        lowStockThreshold: 8,
-        lastUpdated: 'Voice registered just now',
-      },
-      ...prev,
-    ]);
-    setMerchantFeedback('Voice registered: Sprite 36 packs @ ₦500 each compiled into spreadsheet!');
-    setTimeout(() => setMerchantFeedback(null), 4000);
+    const domainResult = await container.bulkImportVoiceInventoryUseCase.execute({
+      spokenTranscript: 'Sprite Pet, 36 bottles, 500 naira for 1',
+    });
+
+    if (domainResult.isSuccess) {
+      const data = domainResult.getValue();
+      setInventory((prev) => [
+        {
+          id: `item-sprite-${Date.now()}`,
+          name: 'Sprite Pet (50cl)',
+          unitPrice: 500,
+          unitType: 'bottle',
+          stockQuantity: 36,
+          category: 'Beverages',
+          lowStockThreshold: 8,
+          lastUpdated: 'Voice registered just now',
+        },
+        ...prev,
+      ]);
+      setMerchantFeedback(data.spreadsheetSummaryText);
+      setTimeout(() => setMerchantFeedback(null), 4000);
+    }
   };
 
-  // Case 2 Action: "Send 2k for spag" (Golden Penny Spaghetti -> Food Category)
-  const handleSendSpag2k = () => {
+  // Case 2 Action: "Send 2k for spag" (DDD ExpenseCategorizer: Golden Penny Spaghetti -> Food Category)
+  const handleSendSpag2k = async () => {
     soundEffects.playPaymentSuccess();
-    const amount = 2000;
-    const note = 'for spag (Golden Penny)';
+    const domainResult = await container.deductBudgetExpenseUseCase.execute({
+      amount: 2000,
+      itemDescription: 'spag',
+    });
 
-    setBudgets((prev) =>
-      prev.map((b) =>
-        b.id === 'food'
-          ? { ...b, spentAmount: b.spentAmount + amount }
-          : b
-      )
-    );
+    if (domainResult.isSuccess) {
+      const data = domainResult.getValue();
+      setBudgets((prev) =>
+        prev.map((b) =>
+          b.id === 'food'
+            ? { ...b, spentAmount: b.spentAmount + 2000 }
+            : b
+        )
+      );
 
-    const newExp: ExpenseRecord = {
-      id: `exp-${Date.now()}`,
-      categoryId: 'food',
-      amount,
-      note,
-      timestamp: 'Just now',
-    };
+      const newExp: ExpenseRecord = {
+        id: data.expenseId || `exp-${Date.now()}`,
+        categoryId: 'food',
+        amount: 2000,
+        note: 'for spag (Golden Penny)',
+        timestamp: 'Just now',
+      };
 
-    setExpenses((prev) => [newExp, ...prev]);
-    setUserFeedback('Deducted ₦2,000 from Food budget (tagged "for spag").');
+      setExpenses((prev) => [newExp, ...prev]);
+      setUserFeedback(data.spokenConfirmation);
 
-    if ('speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance('Deducted 2,000 naira from your Food budget for spag.');
-      window.speechSynthesis.speak(utterance);
+      if ('speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(data.spokenConfirmation);
+        window.speechSynthesis.speak(utterance);
+      }
+
+      setTimeout(() => setUserFeedback(null), 4000);
     }
-
-    setTimeout(() => setUserFeedback(null), 4000);
   };
 
   // Case 2 Action: Trigger Ambiguity Clarification ("Send 5k for sneakers")
@@ -205,10 +222,12 @@ export function TrackerView({
     setTimeout(() => setUserFeedback(null), 3500);
   };
 
-  // Case 3 Action: "Collect money from everybody" (Bluetooth / Wi-Fi Direct sync for Morufu Transport)
-  const handleCollectEverybody = () => {
+  // Case 3 Action: "Collect money from everybody" (Bluetooth / Wi-Fi Direct sync for Morufu Transport via DDD Transit Aggregate)
+  const handleCollectEverybody = async () => {
     setIsCollecting(true);
     soundEffects.playGateSound();
+
+    const domainResult = await container.collectPassengerFaresUseCase.execute();
 
     setTimeout(() => {
       setKoropeSeats((prev) =>
@@ -228,10 +247,14 @@ export function TrackerView({
       );
       setIsCollecting(false);
       soundEffects.playSuccess();
-      setDriverFeedback('All 7 seats collected! Morufu Transport full manifest synced (₦2,100).');
+
+      const alertMsg = domainResult.isSuccess
+        ? domainResult.getValue().spokenDriverAlert
+        : 'All 7 seats collected! Morufu Transport full manifest synced (₦2,100).';
+      setDriverFeedback(alertMsg);
 
       if ('speechSynthesis' in window) {
-        const utterance = new SpeechSynthesisUtterance('All seven passenger fares collected. Full bus paid.');
+        const utterance = new SpeechSynthesisUtterance(alertMsg);
         window.speechSynthesis.speak(utterance);
       }
 
