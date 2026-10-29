@@ -91,6 +91,20 @@ class AudioSynthesizer {
   }
 
   /**
+   * Harmonious success chime
+   */
+  playSuccess() {
+    this.playTransitTapSound();
+  }
+
+  /**
+   * Payment confirmation chime
+   */
+  playPaymentSuccess() {
+    this.playCoinSound();
+  }
+
+  /**
    * Turnstile mechanical barrier opening click
    */
   playGateSound() {

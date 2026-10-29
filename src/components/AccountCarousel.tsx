@@ -97,15 +97,15 @@ export function AccountCarousel({
           }}
           className={`relative rounded-3xl p-6 text-white shadow-2xl bg-gradient-to-br ${activeAccount.cardColor} border border-slate-700/60 overflow-hidden cursor-grab active:cursor-grabbing`}
         >
-          {/* Subtle Zenith watermarked red glow */}
+          {/* Subtle T-Pay watermarked red glow */}
           <div className="absolute top-0 right-0 w-52 h-52 bg-red-600/10 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute -bottom-10 -left-10 w-44 h-44 bg-red-900/15 rounded-full blur-2xl pointer-events-none" />
 
           {/* T-Pay Brand Header */}
           <div className="relative z-10 flex items-center justify-between mb-5">
             <div className="flex items-center gap-2.5">
-              {/* Electric Crimson 'T' Emblem */}
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-red-600 via-red-700 to-rose-800 flex items-center justify-center font-black text-white text-base shadow-lg shadow-red-700/50 border border-red-400/40">
+              {/* T-Pay Electric Crimson & Obsidian Bold 'T' Emblem */}
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-red-600 to-rose-700 flex items-center justify-center font-black text-white text-base shadow-lg shadow-red-700/40 border border-red-400/40">
                 T
               </div>
               <div>
