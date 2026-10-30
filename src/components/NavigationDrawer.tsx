@@ -11,9 +11,10 @@ import {
   Radio,
   LogOut,
   ChevronRight,
+  Award,
 } from 'lucide-react';
 
-export type AppView = 'dashboard' | 'tracker' | 'accounts' | 'history' | 'settings';
+export type AppView = 'dashboard' | 'tracker' | 'accounts' | 'history' | 'settings' | 'pitch';
 
 interface NavigationDrawerProps {
   isOpen: boolean;
@@ -38,11 +39,13 @@ export function NavigationDrawer({
 }: NavigationDrawerProps) {
   const menuItems = [
     { id: 'accounts', label: 'Accounts', icon: CreditCard, desc: 'Swipable Cards (Checking, Savings, Offline)' },
+    { id: 'tracker', label: 'Smart Tracker', icon: TrendingUp, desc: '3 Demo Cases (Merchant, User, Bus)' },
+    { id: 'pitch', label: 'Pitch Deck', icon: Award, desc: 'PayPal Hackathon Presentation & Arch' },
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, desc: 'Executive Portfolio & Financial Overview' },
-    { id: 'tracker', label: 'Tracker', icon: TrendingUp, desc: 'Smart Resource Tracker (Merchant, User, Bus)' },
     { id: 'history', label: 'History', icon: History, desc: 'Full Searchable Transaction Ledger' },
     { id: 'settings', label: 'Settings', icon: Settings, desc: 'Security, Biometrics & Mesh Controls' },
   ] as const;
+
 
   return (
     <AnimatePresence>

@@ -90,3 +90,61 @@ export class EscrowSettlementFailedEvent implements IDomainEvent {
     return this.escrowId;
   }
 }
+
+export class MarketVaultLockedEvent implements IDomainEvent {
+  public dateTimeOccurred: Date;
+  public eventId: string;
+  public readonly vaultId: UniqueEntityId;
+  public readonly userId: string;
+  public readonly amountFormatted: string;
+  public readonly durationHours: number;
+  public readonly expiresAt: Date;
+  public readonly paypalPreAuthId: string;
+
+  constructor(
+    vaultId: UniqueEntityId,
+    userId: string,
+    amountFormatted: string,
+    durationHours: number,
+    expiresAt: Date,
+    paypalPreAuthId: string
+  ) {
+    this.vaultId = vaultId;
+    this.userId = userId;
+    this.amountFormatted = amountFormatted;
+    this.durationHours = durationHours;
+    this.expiresAt = expiresAt;
+    this.paypalPreAuthId = paypalPreAuthId;
+    this.dateTimeOccurred = new Date();
+    this.eventId = `evt-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+  }
+
+  getAggregateId(): UniqueEntityId {
+    return this.vaultId;
+  }
+}
+
+export class MarketVaultMeltedEvent implements IDomainEvent {
+  public dateTimeOccurred: Date;
+  public eventId: string;
+  public readonly vaultId: UniqueEntityId;
+  public readonly unspentMeltedFormatted: string;
+  public readonly refundedToAccountId: string;
+
+  constructor(
+    vaultId: UniqueEntityId,
+    unspentMeltedFormatted: string,
+    refundedToAccountId: string
+  ) {
+    this.vaultId = vaultId;
+    this.unspentMeltedFormatted = unspentMeltedFormatted;
+    this.refundedToAccountId = refundedToAccountId;
+    this.dateTimeOccurred = new Date();
+    this.eventId = `evt-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+  }
+
+  getAggregateId(): UniqueEntityId {
+    return this.vaultId;
+  }
+}
+

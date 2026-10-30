@@ -157,10 +157,45 @@ async function runDDDVerification() {
   console.log(`✓ Regional Language: ${spokenData.language}`);
   console.log(`✓ Localized Speech Readout: "${spokenData.localizedSpokenText}"`);
 
+  // TEST 9: Time-Locked Market Vault ("The Budget-Locked Vault" Model)
+  console.log('\n--- TEST 9: Time-Locked Market Vault ("The Budget-Locked Vault" Model) ---');
+  const lockResult = await container.lockMarketVaultUseCase.execute({
+    userId: 'user-malik',
+    amount: 10000,
+    currency: 'NGN',
+    durationHours: 5,
+  });
+  if (lockResult.isFailure) throw new Error(lockResult.error!);
+  const vaultData = lockResult.getValue();
+  console.log(`✓ Market Vault Created: ID ${vaultData.vaultId}`);
+  console.log(`✓ Pre-funded Amount Locked on PayPal: ${vaultData.allocatedAmountFormatted}`);
+  console.log(`✓ Duration: ${vaultData.durationHours} hours (Expires: ${vaultData.expiresAtIso.substring(11, 19)})`);
+  console.log(`✓ PayPal Cryptographic Lock: ${vaultData.cryptographicLockHash}`);
+  console.log(`✓ PayPal Pre-Auth ID: ${vaultData.paypalPreAuthId}`);
+
+  // Test spend deduction
+  const activeVault = await container.marketVaultRepository.getActiveVault('user-malik');
+  if (!activeVault) throw new Error('Active vault not found');
+  const spendMoney = Money.create(2000, 'NGN').getValue();
+  const spendResult = activeVault.authorizeSpend(spendMoney);
+  if (spendResult.isFailure) throw new Error(spendResult.error!);
+  console.log(`✓ Authorized Offline Spend: ₦2,000. Remaining in vault: ${activeVault.remainingAmount.format()}`);
+
+  // Simulate auto-melt when timer expires
+  const meltResult = await container.meltMarketVaultUseCase.execute({
+    userId: 'user-malik',
+    refundToAccountId: 'checking',
+  });
+  if (meltResult.isFailure) throw new Error(meltResult.error!);
+  const meltData = meltResult.getValue();
+  console.log(`✓ Auto-Melt On Expiry: ${meltData.message}`);
+  console.log(`✓ Refunded to Primary Account: ${meltData.refundedToAccountId}`);
+
   console.log('\n================================================================');
   console.log('🎉 ALL DOMAIN-DRIVEN DESIGN (DDD) SPECIFICATIONS VERIFIED 100%!');
   console.log('================================================================');
 }
+
 
 runDDDVerification().catch((err) => {
   console.error('❌ Verification failed:', err);

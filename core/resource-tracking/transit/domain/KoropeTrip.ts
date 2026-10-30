@@ -90,6 +90,10 @@ export class KoropeTrip extends AggregateRoot<KoropeTripProps> {
     return Result.ok<KoropeTrip>(trip);
   }
 
+  public static rehydrate(props: KoropeTripProps, id: UniqueEntityId): KoropeTrip {
+    return new KoropeTrip(props, id);
+  }
+
   public recordPassengerPayment(
     passengerName: string,
     deviceId: string,

@@ -47,7 +47,7 @@ export class LocalStorageTransitRepository implements ITransitRepository {
           })
       );
 
-      const trip = new KoropeTrip(
+      const trip = KoropeTrip.rehydrate(
         {
           driverName: parsed.driverName,
           vehicleType: parsed.vehicleType,
