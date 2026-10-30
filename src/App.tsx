@@ -18,6 +18,7 @@ import {
   HelpCircle,
   X,
   Menu,
+  Award,
 } from 'lucide-react';
 import { BankAccount, BankTransaction, NearbyPeer } from './types/banking';
 import { INITIAL_ACCOUNTS, INITIAL_BANK_TRANSACTIONS } from './data/bankingData';
@@ -33,7 +34,9 @@ import { TrackerView } from './components/views/TrackerView';
 import { HistoryView } from './components/views/HistoryView';
 import { SettingsView } from './components/views/SettingsView';
 import { PayPalEscrowModal } from './components/PayPalEscrowModal';
+import { JudgePitchHub } from './components/JudgePitchHub';
 import { soundEffects } from './utils/audio';
+
 
 export default function App() {
   const [accounts, setAccounts] = useState<BankAccount[]>(INITIAL_ACCOUNTS);
@@ -240,6 +243,20 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Judge Pitch Hub Quick Launcher */}
+            <button
+              onClick={() => setActiveView(activeView === 'pitch' ? 'accounts' : 'pitch')}
+              className={`px-2 py-1.5 rounded-xl border transition active:scale-95 flex items-center gap-1.5 text-xs font-bold shadow-md ${
+                activeView === 'pitch'
+                  ? 'bg-red-600 border-red-500 text-white shadow-red-700/30'
+                  : 'bg-amber-950/80 hover:bg-amber-900 border-amber-700/80 text-amber-300 hover:text-white shadow-amber-950/40'
+              }`}
+              title="PayPal Hackathon Pitch & Judge Showcase"
+            >
+              <Award className="w-3.5 h-3.5 text-amber-400" />
+              <span className="font-mono text-[11px]">Pitch</span>
+            </button>
+
             {/* PayPal Escrow Vault Quick Launcher */}
             <button
               onClick={() => setIsPayPalEscrowOpen(true)}
@@ -249,6 +266,7 @@ export default function App() {
               <ShieldCheck className="w-3.5 h-3.5 text-sky-400" />
               <span className="hidden sm:inline font-mono">PayPal</span>
             </button>
+
 
             <button
               onClick={() => setIsVoiceAssistantOpen(true)}
@@ -381,11 +399,31 @@ export default function App() {
               onBackToDashboard={() => setActiveView('accounts')}
             />
           </div>
+        ) : activeView === 'pitch' ? (
+          <div className="flex-1 my-2">
+            <JudgePitchHub
+              onTriggerDemoScenario={(scenario) => {
+                if (scenario === 'merchant_sale' || scenario === 'user_budget' || scenario === 'driver_bus') {
+                  setActiveView('tracker');
+                  showAlert(`Switched to Smart Resource Tracker for ${scenario.replace('_', ' ')}!`);
+                } else if (scenario === 'vault_escrow') {
+                  setIsPayPalEscrowOpen(true);
+                }
+              }}
+              onResetDemoData={() => {
+                setAccounts(INITIAL_ACCOUNTS);
+                setTransactions(INITIAL_BANK_TRANSACTIONS);
+                showAlert('Demo balances and transaction records restored to initial state.');
+              }}
+              onClose={() => setActiveView('accounts')}
+            />
+          </div>
         ) : (
           <div className="flex-1 my-2">
             <SettingsView onBackToDashboard={() => setActiveView('accounts')} />
           </div>
         )}
+
 
         {/* Bottom T-Pay Brand Footer */}
         <footer className="text-center text-[10px] text-slate-500 pt-3 border-t border-slate-900">
@@ -435,6 +473,7 @@ export default function App() {
           handleSendTransfer(acct.id, toName, '0129384719', amount, 'T-Pay');
         }}
         onOpenNearbyScan={() => setIsNearbyScannerOpen(true)}
+        onOpenMarketVault={() => setIsPayPalEscrowOpen(true)}
         onNavigateToTracker={() => {
           setActiveView('tracker');
         }}

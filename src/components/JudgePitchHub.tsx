@@ -4,18 +4,19 @@ import { Award, Layers, Zap, Play, RotateCcw, ChevronRight, ChevronLeft, ArrowRi
 import { HACKATHON_DECK } from '../data/mockData';
 
 interface JudgePitchHubProps {
-  onTriggerDemoScenario: (scenario: 'metro_tap' | 'carrier_topup' | 'conductor_pos' | 'route_calc') => void;
+  onTriggerDemoScenario: (scenario: 'merchant_sale' | 'user_budget' | 'driver_bus' | 'vault_escrow') => void;
   onResetDemoData: () => void;
+  onClose?: () => void;
 }
 
-export function JudgePitchHub({ onTriggerDemoScenario, onResetDemoData }: JudgePitchHubProps) {
+export function JudgePitchHub({ onTriggerDemoScenario, onResetDemoData, onClose }: JudgePitchHubProps) {
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
-  const [activeTab, setActiveTab] = useState<'pitch' | 'architecture' | 'scenarios'>('pitch');
+  const [activeTab, setActiveTab] = useState<'pitch' | 'architecture' | 'scenarios' | 'strategy'>('pitch');
 
   const currentSlide = HACKATHON_DECK[currentSlideIndex];
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 text-white shadow-2xl">
+    <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 text-white shadow-2xl animate-fade-in select-none">
       {/* Header bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-800 mb-6">
         <div className="flex items-center gap-3">
@@ -25,12 +26,12 @@ export function JudgePitchHub({ onTriggerDemoScenario, onResetDemoData }: JudgeP
           <div>
             <div className="flex items-center gap-2">
               <span className="text-xs font-mono font-bold text-amber-400 bg-amber-950/80 px-2 py-0.5 rounded-full border border-amber-800">
-                HACKATHON JUDGES DEMO
+                PAYPAL HACKATHON
               </span>
-              <span className="text-xs text-slate-400">T-Pay Global Innovation</span>
+              <span className="text-xs text-slate-400">T-Pay Judge Showcase</span>
             </div>
             <h2 className="text-lg font-bold text-white mt-0.5">
-              Pitch Deck & Interactive System Showcase
+              Pitch Deck & System Architecture
             </h2>
           </div>
         </div>
@@ -41,7 +42,7 @@ export function JudgePitchHub({ onTriggerDemoScenario, onResetDemoData }: JudgeP
             onClick={() => setActiveTab('pitch')}
             className={`px-3 py-1.5 rounded-lg font-medium transition ${
               activeTab === 'pitch'
-                ? 'bg-indigo-600 text-white shadow-sm'
+                ? 'bg-red-600 text-white shadow-sm'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
@@ -51,21 +52,31 @@ export function JudgePitchHub({ onTriggerDemoScenario, onResetDemoData }: JudgeP
             onClick={() => setActiveTab('scenarios')}
             className={`px-3 py-1.5 rounded-lg font-medium transition ${
               activeTab === 'scenarios'
-                ? 'bg-indigo-600 text-white shadow-sm'
+                ? 'bg-red-600 text-white shadow-sm'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            Live Demo Scenarios
+            3 Demo Cases
           </button>
           <button
             onClick={() => setActiveTab('architecture')}
             className={`px-3 py-1.5 rounded-lg font-medium transition ${
               activeTab === 'architecture'
-                ? 'bg-indigo-600 text-white shadow-sm'
+                ? 'bg-red-600 text-white shadow-sm'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
             Architecture
+          </button>
+          <button
+            onClick={() => setActiveTab('strategy')}
+            className={`px-3 py-1.5 rounded-lg font-medium transition ${
+              activeTab === 'strategy'
+                ? 'bg-red-600 text-white shadow-sm'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            B2B vs Ecosystem
           </button>
         </div>
       </div>
@@ -76,7 +87,7 @@ export function JudgePitchHub({ onTriggerDemoScenario, onResetDemoData }: JudgeP
           {/* Slide Navigation controls */}
           <div className="flex items-center justify-between text-xs text-slate-400">
             <div className="flex items-center gap-2">
-              <span className="font-mono text-indigo-400 font-semibold">
+              <span className="font-mono text-red-400 font-semibold">
                 Slide {currentSlideIndex + 1} of {HACKATHON_DECK.length}
               </span>
               <span>·</span>
@@ -114,7 +125,7 @@ export function JudgePitchHub({ onTriggerDemoScenario, onResetDemoData }: JudgeP
                 <h3 className="text-xl font-extrabold text-white tracking-tight">
                   {currentSlide.title}
                 </h3>
-                <p className="text-sm text-indigo-300 mt-1 font-medium leading-relaxed">
+                <p className="text-sm text-red-300 mt-1 font-medium leading-relaxed">
                   {currentSlide.headline}
                 </p>
               </div>
@@ -123,7 +134,7 @@ export function JudgePitchHub({ onTriggerDemoScenario, onResetDemoData }: JudgeP
               <div className="space-y-2.5">
                 {currentSlide.content.map((point, idx) => (
                   <div key={idx} className="flex items-start gap-3 text-xs text-slate-300">
-                    <span className="w-5 h-5 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0 font-mono text-[10px]">
+                    <span className="w-5 h-5 rounded-full bg-red-500/20 text-red-400 flex items-center justify-center shrink-0 font-mono text-[10px]">
                       0{idx + 1}
                     </span>
                     <span className="leading-relaxed">{point}</span>
@@ -154,11 +165,11 @@ export function JudgePitchHub({ onTriggerDemoScenario, onResetDemoData }: JudgeP
                 onClick={() => setCurrentSlideIndex(idx)}
                 className={`flex-1 py-2 px-2 rounded-xl text-[11px] font-medium transition text-left truncate ${
                   currentSlideIndex === idx
-                    ? 'bg-indigo-600/30 text-indigo-300 border border-indigo-500/50'
+                    ? 'bg-red-600/30 text-red-300 border border-red-500/50'
                     : 'bg-slate-950 text-slate-500 border border-slate-800 hover:text-slate-300'
                 }`}
               >
-                0{idx + 1}. {slide.badge}
+                0{idx + 1}. {slide.badge.split(':')[0]}
               </button>
             ))}
           </div>
@@ -169,26 +180,26 @@ export function JudgePitchHub({ onTriggerDemoScenario, onResetDemoData }: JudgeP
       {activeTab === 'scenarios' && (
         <div className="space-y-4">
           <p className="text-xs text-slate-400">
-            Click any automated scenario button below to trigger live interactions on the mobile app and turnstile simulator in real time.
+            Click any interactive scenario below to trigger live DDD use-case executions and voice updates on the app in real time.
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2">
               <div className="flex items-center gap-2">
-                <span className="w-6 h-6 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold text-xs">
+                <span className="w-6 h-6 rounded-lg bg-red-500/20 text-red-400 flex items-center justify-center font-bold text-xs">
                   01
                 </span>
-                <h4 className="text-sm font-semibold text-white">Rush Hour Metro Gate Tap</h4>
+                <h4 className="text-sm font-semibold text-white">Merchant: "Collect 1k for Coke"</h4>
               </div>
               <p className="text-xs text-slate-400">
-                Tests sub-120ms contactless NFC turnstile passage, cryptogram decryption, and audio chime.
+                Price-to-quantity derivation: ₦1,000 / ₦500 unit price deducts 2 Coke bottles. Compiles inventory sheet and speaks aloud.
               </p>
               <button
-                onClick={() => onTriggerDemoScenario('metro_tap')}
-                className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs shadow-md shadow-indigo-600/20 transition active:scale-98"
+                onClick={() => onTriggerDemoScenario('merchant_sale')}
+                className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-medium text-xs shadow-md shadow-red-600/20 transition active:scale-98"
               >
                 <Play className="w-3.5 h-3.5" />
-                <span>Execute Scenario 01</span>
+                <span>Execute Merchant Scenario</span>
               </button>
             </div>
 
@@ -197,17 +208,17 @@ export function JudgePitchHub({ onTriggerDemoScenario, onResetDemoData }: JudgeP
                 <span className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-xs">
                   02
                 </span>
-                <h4 className="text-sm font-semibold text-white">Direct Carrier Airtime Reload</h4>
+                <h4 className="text-sm font-semibold text-white">Regular User: "Send 2k for Spag"</h4>
               </div>
               <p className="text-xs text-slate-400">
-                Simulates an unbanked commuter converting phone credit into transit tokens via MTN/Airtel DCB.
+                Colloquial natural language parsing maps "spag" to Food budget. Deducts ₦2,000 and logs note with ambiguity resolution.
               </p>
               <button
-                onClick={() => onTriggerDemoScenario('carrier_topup')}
+                onClick={() => onTriggerDemoScenario('user_budget')}
                 className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-md shadow-amber-500/20 transition active:scale-98"
               >
                 <Play className="w-3.5 h-3.5" />
-                <span>Execute Scenario 02</span>
+                <span>Execute User Budget Scenario</span>
               </button>
             </div>
 
@@ -216,36 +227,36 @@ export function JudgePitchHub({ onTriggerDemoScenario, onResetDemoData }: JudgeP
                 <span className="w-6 h-6 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-xs">
                   03
                 </span>
-                <h4 className="text-sm font-semibold text-white">Conductor Tap-to-Phone POS</h4>
+                <h4 className="text-sm font-semibold text-white">Bus Driver: "Collect from Everybody"</h4>
               </div>
               <p className="text-xs text-slate-400">
-                Simulates a bus conductor collecting fare directly on their smartphone with zero hardware.
+                7-seat Korope mini-bus manifest. Sweeps passengers over Bluetooth/Wi-Fi mesh and informs driver Morufu of paid seats.
               </p>
               <button
-                onClick={() => onTriggerDemoScenario('conductor_pos')}
+                onClick={() => onTriggerDemoScenario('driver_bus')}
                 className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs shadow-md shadow-emerald-600/20 transition active:scale-98"
               >
                 <Play className="w-3.5 h-3.5" />
-                <span>Execute Scenario 03</span>
+                <span>Execute Korope Sweep</span>
               </button>
             </div>
 
             <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2">
               <div className="flex items-center gap-2">
-                <span className="w-6 h-6 rounded-lg bg-purple-500/20 text-purple-400 flex items-center justify-center font-bold text-xs">
+                <span className="w-6 h-6 rounded-lg bg-sky-500/20 text-sky-400 flex items-center justify-center font-bold text-xs">
                   04
                 </span>
-                <h4 className="text-sm font-semibold text-white">AI Multimodal Fare Optimizer</h4>
+                <h4 className="text-sm font-semibold text-white">The Big Gun: Budget-Locked Vault</h4>
               </div>
               <p className="text-xs text-slate-400">
-                Evaluates Marina to Airport route, combining BRT + Metro Rail with dynamic 35% transfer discount.
+                Pre-funds ₦10,000 in Market Vault with cryptographic lock on PayPal balance. Zero-data spend & auto-melt unspent refund.
               </p>
               <button
-                onClick={() => onTriggerDemoScenario('route_calc')}
-                className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-medium text-xs shadow-md shadow-purple-600/20 transition active:scale-98"
+                onClick={() => onTriggerDemoScenario('vault_escrow')}
+                className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-medium text-xs shadow-md shadow-sky-600/20 transition active:scale-98"
               >
                 <Play className="w-3.5 h-3.5" />
-                <span>Execute Scenario 04</span>
+                <span>Open Market Vault Simulator</span>
               </button>
             </div>
           </div>
@@ -257,39 +268,78 @@ export function JudgePitchHub({ onTriggerDemoScenario, onResetDemoData }: JudgeP
         <div className="space-y-4">
           <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-4">
             <h4 className="text-sm font-semibold text-white flex items-center gap-2">
-              <Cpu className="w-4 h-4 text-indigo-400" />
-              <span>Offline-First End-to-End Cryptographic Flow</span>
+              <Cpu className="w-4 h-4 text-red-500" />
+              <span>Dual-App Local Trust Architecture (The Big Gun)</span>
             </h4>
 
             {/* Architecture Node Grid */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
               <div className="p-3 rounded-xl bg-slate-900 border border-slate-800">
-                <div className="font-semibold text-indigo-400 mb-1">1. Passenger App</div>
+                <div className="font-semibold text-sky-400 mb-1">1. Online Pre-Auth Lock</div>
                 <p className="text-[11px] text-slate-400">
-                  Generates rotating HMAC cryptogram every 15s. Stores offline transit token locally.
+                  User locks ₦10,000 while online on PayPal servers. Creates time-bound cryptographic lock (5h or 24h).
                 </p>
               </div>
 
               <div className="p-3 rounded-xl bg-slate-900 border border-slate-800">
-                <div className="font-semibold text-indigo-400 mb-1">2. Edge Turnstile / POS</div>
+                <div className="font-semibold text-red-400 mb-1">2. Zero-Data Offline Handshake</div>
                 <p className="text-[11px] text-slate-400">
-                  Validates public key signature locally in &lt;120ms with 0 internet dependency.
+                  Device A & B exchange HMAC-SHA256 cryptograms via BLE OTP. Merchant is guaranteed 0 double-spend fraud.
                 </p>
               </div>
 
               <div className="p-3 rounded-xl bg-slate-900 border border-slate-800">
-                <div className="font-semibold text-amber-400 mb-1">3. Carrier DCB Bridge</div>
+                <div className="font-semibold text-emerald-400 mb-1">3. Opportunistic PayPal Capture</div>
                 <p className="text-[11px] text-slate-400">
-                  Converts SIM airtime balances into wallet credit via USSD/SMPP gateway protocols.
+                  Whichever device gets internet first dispatches the voucher to PayPal Capture REST API for settlement.
                 </p>
               </div>
 
               <div className="p-3 rounded-xl bg-slate-900 border border-slate-800">
-                <div className="font-semibold text-emerald-400 mb-1">4. Settlement Ledger</div>
+                <div className="font-semibold text-amber-400 mb-1">4. Automatic Fund Melt</div>
                 <p className="text-[11px] text-slate-400">
-                  Batch reconciles offline transit operator accounts at T+0 with zero revenue leakage.
+                  When lock duration expires, unspent funds automatically melt back into the user primary checking balance.
                 </p>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tab 4: Strategic Roadmap (Directly from PDF Pages 4-6) */}
+      {activeTab === 'strategy' && (
+        <div className="space-y-4">
+          <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-4">
+            <h4 className="text-sm font-semibold text-white flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-emerald-400" />
+              <span>B2B Enterprise API vs Closed-Loop Wallet (The Verdict)</span>
+            </h4>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+              <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+                <div className="font-bold text-sky-400 text-sm">Option 1: B2B API Standard (Selling to Moniepoint/OPay)</div>
+                <ul className="space-y-1.5 text-slate-300 text-[11px]">
+                  <li>• <strong>The Problem:</strong> Fragmented POS hardware. Merchants carry multiple bank terminals.</li>
+                  <li>• <strong>The API Value:</strong> Open offline infrastructure standard (like NIBSS/Interswitch for offline tokens).</li>
+                  <li>• <strong>Tradeoff:</strong> Hard pitch to tier-1 banks initially; lower branding power.</li>
+                </ul>
+              </div>
+
+              <div className="p-4 rounded-xl bg-slate-900 border border-red-900/60 space-y-2">
+                <div className="font-bold text-red-400 text-sm">Option 2: Closed-Loop Ecosystem (T-Pay Exclusive)</div>
+                <ul className="space-y-1.5 text-slate-300 text-[11px]">
+                  <li>• <strong>The Benefit:</strong> Total control over ledger, 0 fraud risk, 100% data capture & transaction fees.</li>
+                  <li>• <strong>Hackathon Strategy:</strong> Exclusive feature: "T-Pay users gain exclusive access to the Secure Offline Budget Vault."</li>
+                  <li>• <strong>Future Pivot:</strong> Prove tech in the wild first, then license API standard to big commercial banks.</li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-emerald-950/70 border border-emerald-800 text-xs text-emerald-300 flex items-center gap-2.5">
+              <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0" />
+              <span>
+                <strong>Winning Hackathon Formula:</strong> Launch as a Closed-Loop Ecosystem with PayPal as primary processor to win the hackathon; expand to an open B2B offline clearinghouse protocol API.
+              </span>
             </div>
           </div>
         </div>
@@ -303,9 +353,10 @@ export function JudgePitchHub({ onTriggerDemoScenario, onResetDemoData }: JudgeP
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 transition"
         >
           <RotateCcw className="w-3.5 h-3.5" />
-          <span>Reset Demo Balances & History</span>
+          <span>Reset Demo Data</span>
         </button>
       </div>
     </div>
   );
 }
+

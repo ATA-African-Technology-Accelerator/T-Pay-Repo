@@ -27,6 +27,7 @@ interface VoiceAssistantModalProps {
   onExecuteVoiceTransfer: (fromType: string, toName: string, amount: number) => void;
   onOpenNearbyScan: () => void;
   onNavigateToTracker?: (caseTab?: 'merchant' | 'user' | 'driver') => void;
+  onOpenMarketVault?: () => void;
   initialPrompt?: string;
 }
 
@@ -37,6 +38,7 @@ export function VoiceAssistantModal({
   onExecuteVoiceTransfer,
   onOpenNearbyScan,
   onNavigateToTracker,
+  onOpenMarketVault,
   initialPrompt,
 }: VoiceAssistantModalProps) {
   const [isListening, setIsListening] = useState(false);
@@ -216,7 +218,47 @@ export function VoiceAssistantModal({
       return;
     }
 
-    // 6. Nearby / Bluetooth Offline Pay
+    // 6. Market Vault / Time-Locked Escrow: "Lock 10k for market vault" or "Pre-auth budget vault"
+    if (lower.includes('market') || lower.includes('vault') || lower.includes('lock 10k') || lower.includes('escrow')) {
+      const resp =
+        language === 'pidgin'
+          ? "I dey prepare Time-Locked Market Vault for you! ₦10,000 will be pre-locked on PayPal with HMAC-SHA256 crypto token. Zero double-spend fraud offline."
+          : "Pre-authorizing Time-Locked Market Vault on PayPal for ₦10,000. Balance is pre-locked on PayPal servers for offline spending.";
+      setAiResponse(resp);
+      speakAloud(resp);
+      setActiveActionDetails({
+        category: 'transfer',
+        summary: 'Market Vault: ₦10,000 PayPal Pre-Auth ready.',
+        actionLabel: 'Open Market Vault',
+        onExecute: () => {
+          onClose();
+          onOpenMarketVault?.();
+        },
+      });
+      return;
+    }
+
+    // 7. Daily Reconciliation & Stock Audit: "Review daily sales" or "Stock audit"
+    if (lower.includes('audit') || lower.includes('reconciliation') || lower.includes('daily sales') || lower.includes('eod') || lower.includes('review my')) {
+      const resp =
+        language === 'pidgin'
+          ? "Oya Mama Nkechi! I don open End-of-Day reconciliation audit. You have 40 Coke and 56 Maltina in stock, with live cash sales logged."
+          : "Opening End-of-Day Reconciliation & Physical Stock Audit. Current inventory and cash sales are verified.";
+      setAiResponse(resp);
+      speakAloud(resp);
+      setActiveActionDetails({
+        category: 'merchant',
+        summary: 'End-of-Day Stock Audit & Cash Sales Reconciliation ready.',
+        actionLabel: 'Open Daily Stock Audit',
+        onExecute: () => {
+          onClose();
+          onNavigateToTracker?.('merchant');
+        },
+      });
+      return;
+    }
+
+    // 8. Nearby / Bluetooth Offline Pay
     if (lower.includes('nearby') || lower.includes('bluetooth') || lower.includes('offline')) {
       const resp =
         language === 'pidgin'
@@ -231,7 +273,7 @@ export function VoiceAssistantModal({
       return;
     }
 
-    // 7. Balance Check
+    // 9. Balance Check
     if (lower.includes('balance') || lower.includes('how much') || lower.includes('wetin dey')) {
       const offline = accounts.find((a) => a.type === 'offline_checking')?.availableBalance || 0;
       const resp =
@@ -254,7 +296,8 @@ export function VoiceAssistantModal({
 
   const sampleVoicePrompts = [
     { label: 'Collect 1k for coke', full: 'Collect one thousand for coke', tag: 'Case 1: Merchant' },
-    { label: 'Coke 42 packs, Maltina 56', full: 'Coke, 42 packs, 500 naira for 1; Maltina, 56 packs, 600 for 1', tag: 'Voice Inventory' },
+    { label: 'Review daily sales audit', full: 'Review daily sales audit', tag: 'EOD Audit' },
+    { label: 'Lock 10k for market vault', full: 'Lock 10k for market vault', tag: 'Market Vault' },
     { label: 'Send 2k for spag', full: 'Send two thousand for spag', tag: 'Case 2: Budget' },
     { label: 'Collect from everybody', full: 'Collect money from everybody', tag: 'Case 3: Driver' },
     { label: 'Wetin dey my account?', full: 'Wetin dey my offline account?', tag: 'Pidgin Balance' },

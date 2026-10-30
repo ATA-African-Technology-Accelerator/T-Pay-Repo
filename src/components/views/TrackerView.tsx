@@ -18,7 +18,12 @@ import {
   CreditCard,
   ShieldCheck,
   Zap,
+  Volume2,
+  X,
+  DollarSign,
+  FileSpreadsheet,
 } from 'lucide-react';
+
 import {
   INITIAL_MERCHANT_INVENTORY,
   INITIAL_MERCHANT_SALES,
@@ -35,6 +40,7 @@ import {
   KoropeSeat,
 } from '../../types/banking';
 import { soundEffects } from '../../utils/audio';
+import { container } from '../../../core/container';
 
 interface TrackerViewProps {
   onBackToDashboard: () => void;
@@ -54,6 +60,11 @@ export function TrackerView({
   const [inventory, setInventory] = useState<InventoryItem[]>(INITIAL_MERCHANT_INVENTORY);
   const [sales, setSales] = useState<MerchantSaleRecord[]>(INITIAL_MERCHANT_SALES);
   const [merchantFeedback, setMerchantFeedback] = useState<string | null>(null);
+  const [isReconciliationOpen, setIsReconciliationOpen] = useState(false);
+  const [cashSalesTotal, setCashSalesTotal] = useState<number>(600);
+  const [reconciliationDialect, setReconciliationDialect] = useState<'pidgin' | 'en' | 'yoruba' | 'igbo'>('pidgin');
+  const [selectedCashItemId, setSelectedCashItemId] = useState<string>('item-maltina');
+  const [selectedCashQty, setSelectedCashQty] = useState<number>(1);
 
   // Case 2: Regular User State
   const [budgets, setBudgets] = useState<BudgetCategory[]>(INITIAL_USER_BUDGETS);
@@ -69,104 +80,182 @@ export function TrackerView({
   const [isCollecting, setIsCollecting] = useState(false);
   const [driverFeedback, setDriverFeedback] = useState<string | null>(null);
 
-  // Case 1 Action: "Collect 1000 for Coke" (Coke is ₦500 -> 2 bottles sold)
-  const handleCollectCoke1k = () => {
+  // Case 1 Action: "Collect 1000 for Coke" (DDD PriceToQuantityCalculator: ₦1,000 / ₦500 = 2 bottles)
+  const handleCollectCoke1k = async () => {
     soundEffects.playGateSound();
-    const coke = inventory.find((i) => i.id === 'item-coke');
-    if (!coke) return;
 
-    const bottlesSold = 2; // ₦1,000 / ₦500 per bottle = 2
-    if (coke.stockQuantity < bottlesSold) {
-      setMerchantFeedback('Insufficient Coke stock!');
+    const domainResult = await container.processVoiceSaleUseCase.execute({
+      spokenQuery: 'collect one thousand for coke',
+      matchedItemName: 'coke',
+      currencyAmount: 1000,
+      paymentMethod: 'bluetooth_escrow',
+    });
+
+    if (domainResult.isSuccess) {
+      const data = domainResult.getValue();
+      setInventory((prev) =>
+        prev.map((item) =>
+          item.id === 'item-coke'
+            ? {
+                ...item,
+                stockQuantity: data.remainingStock,
+                lastUpdated: 'Just now',
+              }
+            : item
+        )
+      );
+
+      const newSale: MerchantSaleRecord = {
+        id: data.saleId,
+        itemName: data.itemName,
+        quantitySold: data.unitsSold,
+        totalAmount: 1000,
+        paymentMethod: 'bluetooth_escrow',
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      };
+
+      setSales((prev) => [newSale, ...prev]);
+      setMerchantFeedback(data.spokenConfirmation);
+
+      // Speech readout for accessibility (no typing required)
+      if ('speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(data.spokenConfirmation);
+        utterance.rate = 1.0;
+        window.speechSynthesis.speak(utterance);
+      }
+
+      setTimeout(() => setMerchantFeedback(null), 4000);
+    } else {
+      setMerchantFeedback(domainResult.error || 'Sale failed');
       setTimeout(() => setMerchantFeedback(null), 3000);
-      return;
     }
+  };
 
+  // Case 1 Action: Voice Inventory setup simulation (DDD SpokenInventoryParser)
+  const handleSimulateVoiceInventorySetup = async () => {
+    soundEffects.playSuccess();
+    const domainResult = await container.bulkImportVoiceInventoryUseCase.execute({
+      spokenTranscript: 'Sprite Pet, 36 bottles, 500 naira for 1',
+    });
+
+    if (domainResult.isSuccess) {
+      const data = domainResult.getValue();
+      setInventory((prev) => [
+        {
+          id: `item-sprite-${Date.now()}`,
+          name: 'Sprite Pet (50cl)',
+          unitPrice: 500,
+          unitType: 'bottle',
+          stockQuantity: 36,
+          category: 'Beverages',
+          lowStockThreshold: 8,
+          lastUpdated: 'Voice registered just now',
+        },
+        ...prev,
+      ]);
+      setMerchantFeedback(data.spreadsheetSummaryText);
+      setTimeout(() => setMerchantFeedback(null), 4000);
+    }
+  };
+
+  // Case 1 Action: Log Cash Sale in End-of-Day Reconciliation
+  const handleRecordCashSale = () => {
+    const targetItem = inventory.find((i) => i.id === selectedCashItemId);
+    if (!targetItem || targetItem.stockQuantity < selectedCashQty) return;
+
+    soundEffects.playCoinSound();
+    const saleAmount = targetItem.unitPrice * selectedCashQty;
+
+    // Deduct stock in live inventory spreadsheet
     setInventory((prev) =>
       prev.map((item) =>
-        item.id === 'item-coke'
+        item.id === selectedCashItemId
           ? {
               ...item,
-              stockQuantity: item.stockQuantity - bottlesSold,
-              lastUpdated: 'Just now',
+              stockQuantity: item.stockQuantity - selectedCashQty,
+              lastUpdated: 'Cash sale just now',
             }
           : item
       )
     );
 
-    const newSale: MerchantSaleRecord = {
-      id: `sale-${Date.now()}`,
-      itemName: 'Coke (50cl Pet)',
-      quantitySold: bottlesSold,
-      totalAmount: 1000,
-      paymentMethod: 'bluetooth_escrow',
+    // Record cash sale in sales ledger
+    const cashSale: MerchantSaleRecord = {
+      id: `sale-cash-${Date.now()}`,
+      itemName: targetItem.name,
+      quantitySold: selectedCashQty,
+      totalAmount: saleAmount,
+      paymentMethod: 'cash',
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
 
-    setSales((prev) => [newSale, ...prev]);
-    setMerchantFeedback('Sold 2 bottles of Coke for ₦1,000. Inventory updated (-2 bottles).');
+    setSales((prev) => [cashSale, ...prev]);
+    setCashSalesTotal((prev) => prev + saleAmount);
 
-    // Speech readout for accessibility (no typing required)
-    if ('speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance('Sold 2 bottles of Coke. Remaining in stock: ' + (coke.stockQuantity - bottlesSold));
-      utterance.rate = 1.0;
-      window.speechSynthesis.speak(utterance);
-    }
-
-    setTimeout(() => setMerchantFeedback(null), 4000);
-  };
-
-  // Case 1 Action: Voice Inventory setup simulation
-  const handleSimulateVoiceInventorySetup = () => {
-    soundEffects.playSuccess();
-    setInventory((prev) => [
-      {
-        id: `item-sprite-${Date.now()}`,
-        name: 'Sprite Pet (50cl)',
-        unitPrice: 500,
-        unitType: 'bottle',
-        stockQuantity: 36,
-        category: 'Beverages',
-        lowStockThreshold: 8,
-        lastUpdated: 'Voice registered just now',
-      },
-      ...prev,
-    ]);
-    setMerchantFeedback('Voice registered: Sprite 36 packs @ ₦500 each compiled into spreadsheet!');
-    setTimeout(() => setMerchantFeedback(null), 4000);
-  };
-
-  // Case 2 Action: "Send 2k for spag" (Golden Penny Spaghetti -> Food Category)
-  const handleSendSpag2k = () => {
-    soundEffects.playPaymentSuccess();
-    const amount = 2000;
-    const note = 'for spag (Golden Penny)';
-
-    setBudgets((prev) =>
-      prev.map((b) =>
-        b.id === 'food'
-          ? { ...b, spentAmount: b.spentAmount + amount }
-          : b
-      )
+    setMerchantFeedback(
+      `Recorded cash sale: ${selectedCashQty} ${targetItem.unitType}(s) of ${targetItem.name} for ₦${saleAmount.toLocaleString()}. Stock updated.`
     );
+    setTimeout(() => setMerchantFeedback(null), 4000);
+  };
 
-    const newExp: ExpenseRecord = {
-      id: `exp-${Date.now()}`,
-      categoryId: 'food',
-      amount,
-      note,
-      timestamp: 'Just now',
+  // Case 1 Action: Speak Daily Reconciliation in chosen dialect to bridge literacy gap
+  const handleSpeakDailyReconciliation = () => {
+    soundEffects.playGateSound();
+    const totalRev = cashSalesTotal + 1000 + 800; // Cash + Offline BLE + PayPal
+
+    const scripts: Record<'pidgin' | 'en' | 'yoruba' | 'igbo', string> = {
+      pidgin: `Mama Nkechi, e good day! Today you sell 3 times, total money na ₦${totalRev.toLocaleString()}. Cash sale na ₦${cashSalesTotal.toLocaleString()}, Bluetooth offline na ₦1,000, PayPal na ₦800. Notice: Agege Bread remain only 18 pieces for store. Everything dey recorded sharp sharp!`,
+      en: `Daily Stock Summary for Mama Nkechi Provisions: Total daily revenue is ₦${totalRev.toLocaleString()} across Cash, Bluetooth Offline Escrow, and PayPal. All inventory stock is reconciled.`,
+      yoruba: `Akopọ ojo oni fun Mama Nkechi: Apapo gbogbo owo tita loni je ₦${totalRev.toLocaleString()}. Owo owo je ₦${cashSalesTotal.toLocaleString()}, Bluetooth je ₦1,000, PayPal je ₦800. E se pupo!`,
+      igbo: `Nchịkọta ụbọchị maka Mama Nkechi: Ngụkọta ego erere taa bụ ₦${totalRev.toLocaleString()}. Ego n'aka bụ ₦${cashSalesTotal.toLocaleString()}, Bluetooth offline bụ ₦1,000, PayPal bụ ₦800. Daalụ!`,
     };
 
-    setExpenses((prev) => [newExp, ...prev]);
-    setUserFeedback('Deducted ₦2,000 from Food budget (tagged "for spag").');
-
+    const textToSpeak = scripts[reconciliationDialect];
     if ('speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance('Deducted 2,000 naira from your Food budget for spag.');
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(textToSpeak);
+      utterance.rate = 0.95;
       window.speechSynthesis.speak(utterance);
     }
+  };
 
-    setTimeout(() => setUserFeedback(null), 4000);
+
+  // Case 2 Action: "Send 2k for spag" (DDD ExpenseCategorizer: Golden Penny Spaghetti -> Food Category)
+  const handleSendSpag2k = async () => {
+    soundEffects.playPaymentSuccess();
+    const domainResult = await container.deductBudgetExpenseUseCase.execute({
+      amount: 2000,
+      itemDescription: 'spag',
+    });
+
+    if (domainResult.isSuccess) {
+      const data = domainResult.getValue();
+      setBudgets((prev) =>
+        prev.map((b) =>
+          b.id === 'food'
+            ? { ...b, spentAmount: b.spentAmount + 2000 }
+            : b
+        )
+      );
+
+      const newExp: ExpenseRecord = {
+        id: data.expenseId || `exp-${Date.now()}`,
+        categoryId: 'food',
+        amount: 2000,
+        note: 'for spag (Golden Penny)',
+        timestamp: 'Just now',
+      };
+
+      setExpenses((prev) => [newExp, ...prev]);
+      setUserFeedback(data.spokenConfirmation);
+
+      if ('speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(data.spokenConfirmation);
+        window.speechSynthesis.speak(utterance);
+      }
+
+      setTimeout(() => setUserFeedback(null), 4000);
+    }
   };
 
   // Case 2 Action: Trigger Ambiguity Clarification ("Send 5k for sneakers")
@@ -205,10 +294,12 @@ export function TrackerView({
     setTimeout(() => setUserFeedback(null), 3500);
   };
 
-  // Case 3 Action: "Collect money from everybody" (Bluetooth / Wi-Fi Direct sync for Morufu Transport)
-  const handleCollectEverybody = () => {
+  // Case 3 Action: "Collect money from everybody" (Bluetooth / Wi-Fi Direct sync for Morufu Transport via DDD Transit Aggregate)
+  const handleCollectEverybody = async () => {
     setIsCollecting(true);
     soundEffects.playGateSound();
+
+    const domainResult = await container.collectPassengerFaresUseCase.execute();
 
     setTimeout(() => {
       setKoropeSeats((prev) =>
@@ -228,10 +319,14 @@ export function TrackerView({
       );
       setIsCollecting(false);
       soundEffects.playSuccess();
-      setDriverFeedback('All 7 seats collected! Morufu Transport full manifest synced (₦2,100).');
+
+      const alertMsg = domainResult.isSuccess
+        ? domainResult.getValue().spokenDriverAlert
+        : 'All 7 seats collected! Morufu Transport full manifest synced (₦2,100).';
+      setDriverFeedback(alertMsg);
 
       if ('speechSynthesis' in window) {
-        const utterance = new SpeechSynthesisUtterance('All seven passenger fares collected. Full bus paid.');
+        const utterance = new SpeechSynthesisUtterance(alertMsg);
         window.speechSynthesis.speak(utterance);
       }
 
@@ -428,7 +523,7 @@ export function TrackerView({
             <div className="grid grid-cols-3 gap-2 pt-1 text-center text-xs">
               <div className="p-2 rounded-xl bg-slate-950 border border-slate-800">
                 <div className="text-[10px] text-slate-500">Cash Sales</div>
-                <div className="font-mono font-bold text-emerald-400">₦600</div>
+                <div className="font-mono font-bold text-emerald-400">₦{cashSalesTotal.toLocaleString()}</div>
               </div>
               <div className="p-2 rounded-xl bg-slate-950 border border-slate-800">
                 <div className="text-[10px] text-slate-500">Offline BLE</div>
@@ -439,7 +534,16 @@ export function TrackerView({
                 <div className="font-mono font-bold text-sky-400">₦800</div>
               </div>
             </div>
+
+            <button
+              onClick={() => setIsReconciliationOpen(true)}
+              className="w-full mt-2 py-2.5 px-3 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 hover:text-white font-bold text-xs flex items-center justify-center gap-2 transition active:scale-98"
+            >
+              <Clock className="w-3.5 h-3.5 text-amber-400" />
+              <span>Run Daily Stock Review & Cash Audit</span>
+            </button>
           </div>
+
         </div>
       )}
 
@@ -760,6 +864,216 @@ export function TrackerView({
           </div>
         </div>
       )}
+
+      {/* END-OF-DAY RECONCILIATION & STOCK AUDIT MODAL */}
+      <AnimatePresence>
+        {isReconciliationOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fade-in select-none">
+            <motion.div
+              initial={{ scale: 0.94, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.94, opacity: 0 }}
+              className="relative w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 text-white shadow-2xl max-h-[92vh] flex flex-col overflow-hidden"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between pb-3 border-b border-slate-800 shrink-0">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center">
+                    <Clock className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-white">Daily Stock Review & Audit</h3>
+                    <p className="text-[11px] text-slate-400">Mama Nkechi Provisions · End-of-Day Ledger</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsReconciliationOpen(false)}
+                  className="p-1.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Scrollable Content */}
+              <div className="overflow-y-auto flex-1 space-y-4 py-3 pr-1 text-xs">
+                {/* Voice Readout Section (Literacy Bridge) */}
+                <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-950/70 via-slate-950 to-slate-950 border border-amber-800/60 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-amber-300 font-bold">
+                      <Volume2 className="w-4 h-4 text-amber-400" />
+                      <span>Audio Readout (Literacy Bridge)</span>
+                    </div>
+                    <span className="text-[10px] bg-amber-950 text-amber-300 border border-amber-800 px-2 py-0.5 rounded font-mono">
+                      Hands-Free
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-300 leading-relaxed">
+                    AI reads out today's sales and stock balances in your chosen language so you don't need to read or write.
+                  </p>
+
+                  {/* Dialect selector */}
+                  <div className="grid grid-cols-4 gap-1.5 pt-1">
+                    {(['pidgin', 'en', 'yoruba', 'igbo'] as const).map((d) => (
+                      <button
+                        key={d}
+                        onClick={() => setReconciliationDialect(d)}
+                        className={`py-1.5 rounded-xl font-bold text-[11px] uppercase transition border ${
+                          reconciliationDialect === d
+                            ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-sm'
+                            : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white'
+                        }`}
+                      >
+                        {d}
+                      </button>
+                    ))}
+                  </div>
+
+                  <button
+                    onClick={handleSpeakDailyReconciliation}
+                    className="w-full py-2.5 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-2 transition shadow-md shadow-amber-500/20"
+                  >
+                    <Volume2 className="w-4 h-4" />
+                    <span>Speak Daily Audit Aloud ({reconciliationDialect.toUpperCase()})</span>
+                  </button>
+                </div>
+
+                {/* Today's Sales Channel Breakdown */}
+                <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-2.5">
+                  <span className="font-bold text-white uppercase font-mono tracking-wider text-[11px]">
+                    Consolidated Sales Breakdown
+                  </span>
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800">
+                      <div className="text-[10px] text-slate-500">Cash Register</div>
+                      <div className="font-mono font-bold text-emerald-400 text-sm mt-0.5">
+                        ₦{cashSalesTotal.toLocaleString()}
+                      </div>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800">
+                      <div className="text-[10px] text-slate-500">Offline BLE</div>
+                      <div className="font-mono font-bold text-red-400 text-sm mt-0.5">₦1,000</div>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800">
+                      <div className="text-[10px] text-slate-500">PayPal Online</div>
+                      <div className="font-mono font-bold text-sky-400 text-sm mt-0.5">₦800</div>
+                    </div>
+                  </div>
+                  <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between font-mono">
+                    <span className="text-slate-400 font-sans">Total Daily Revenue:</span>
+                    <span className="font-bold text-white text-sm">
+                      ₦{(cashSalesTotal + 1000 + 800).toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Record Any Cash Sales Made During the Day */}
+                <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 font-bold text-white">
+                      <DollarSign className="w-4 h-4 text-emerald-400" />
+                      <span>Record Physical Cash Sale</span>
+                    </div>
+                    <span className="text-[10px] text-slate-500 font-mono">Auto-Deducts Stock</span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] text-slate-400 block mb-1">Select Item</label>
+                      <select
+                        value={selectedCashItemId}
+                        onChange={(e) => setSelectedCashItemId(e.target.value)}
+                        className="w-full bg-slate-900 border border-slate-800 rounded-xl px-2 py-2 text-white font-medium focus:outline-none focus:border-amber-500 text-xs"
+                      >
+                        {inventory.map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.name} (₦{item.unitPrice})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] text-slate-400 block mb-1">Units Sold</label>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedCashQty((q) => Math.max(1, q - 1))}
+                          className="w-9 h-9 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 font-bold hover:bg-slate-800"
+                        >
+                          -
+                        </button>
+                        <span className="font-mono font-bold text-white text-sm px-2">
+                          {selectedCashQty}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedCashQty((q) => q + 1)}
+                          className="w-9 h-9 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 font-bold hover:bg-slate-800"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={handleRecordCashSale}
+                    className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-2 transition"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Save Cash Sale & Update Inventory</span>
+                  </button>
+                </div>
+
+                {/* Live Stock Level Sheet */}
+                <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-white font-mono text-[11px] uppercase">
+                      Physical Stock Count
+                    </span>
+                    <span className="text-[10px] text-slate-500">{inventory.length} catalog items</span>
+                  </div>
+                  <div className="divide-y divide-slate-800/60">
+                    {inventory.map((i) => (
+                      <div key={i.id} className="py-2 flex items-center justify-between">
+                        <div>
+                          <div className="font-semibold text-white">{i.name}</div>
+                          <div className="text-[10px] text-slate-400 font-mono">
+                            ₦{i.unitPrice} / {i.unitType}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-mono font-bold text-white">
+                            {i.stockQuantity} <span className="text-slate-500">{i.unitType}s</span>
+                          </div>
+                          {i.stockQuantity <= i.lowStockThreshold && (
+                            <span className="text-[9px] text-amber-400 font-mono">Restock soon</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="pt-3 border-t border-slate-800 flex items-center justify-between shrink-0">
+                <span className="text-[11px] text-slate-400">All channels reconciled</span>
+                <button
+                  onClick={() => {
+                    soundEffects.playSuccess();
+                    setIsReconciliationOpen(false);
+                  }}
+                  className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition"
+                >
+                  Confirm Daily Stock & Close
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
+
