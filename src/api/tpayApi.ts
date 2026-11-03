@@ -88,6 +88,16 @@ export async function processVoiceSale(payload: any): Promise<any> {
   return handleResponse(res);
 }
 
+export async function importVoiceInventory(payload: { spokenTranscript: string }): Promise<any> {
+  const res = await fetch(`${API_BASE}/inventory/bulk-import`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return handleResponse(res);
+}
+
+// Keep bulkImport for backward compatibility
 export async function bulkImport(payload: any): Promise<any> {
   const res = await fetch(`${API_BASE}/inventory/bulk-import`, {
     method: 'POST',

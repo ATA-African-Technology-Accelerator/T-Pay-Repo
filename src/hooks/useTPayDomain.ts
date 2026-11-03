@@ -59,16 +59,15 @@ export function useMerchantDomain() {
 
   const importVoiceInventory = async (spokenTranscript: string) => {
     setIsLoading(true);
-    const result = await container.bulkImportVoiceInventoryUseCase.execute({ spokenTranscript });
+    const result = await tpayApi.importVoiceInventory({ spokenTranscript });
     setIsLoading(false);
-    if (result.isSuccess) {
-      const data = result.getValue();
-      setFeedback(data.spreadsheetSummaryText);
+    if (result) {
+      setFeedback(result.spreadsheetSummaryText);
       await refresh();
-      return data;
+      return result;
     } else {
-      setFeedback(result.error);
-      throw new Error(result.error || 'Import failed');
+      setFeedback('Import failed');
+      throw new Error('Import failed');
     }
   };
 
@@ -121,13 +120,9 @@ export function useBudgetDomain() {
   }, [refresh]);
 
   const deductExpense = async (amount: number, description: string) => {
-    const result = await container.deductBudgetExpenseUseCase.execute({
-      amount,
-      itemDescription: description,
-    });
-
-    if (result.isSuccess) {
-      const data = result.getValue();
+    const result = await tpayApi.deductExpense({ amount, description });
+    if (result) {
+      const data = result;
       if (data.status === 'AMBIGUITY_DETECTED') {
         setPendingAmbiguity({
           amount,
@@ -144,8 +139,8 @@ export function useBudgetDomain() {
         return data;
       }
     } else {
-      setFeedback(result.error);
-      throw new Error(result.error || 'Budget deduction failed');
+      setFeedback('Budget deduction failed');
+      throw new Error('Budget deduction failed');
     }
   };
 
