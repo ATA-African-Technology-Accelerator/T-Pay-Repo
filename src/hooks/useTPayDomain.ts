@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { container } from '../../core/container';
+import * as tpayApi from '../api/tpayApi';
 import { DomainEventBus } from '../../core/shared/domain/DomainEventBus';
 import type { SupportedLanguage, ExecutionMode } from '../../core/hybrid-assistant/domain/value-objects/VoiceIntent';
 import type { InventoryItem } from '../../core/resource-tracking/merchant/domain/InventoryItem';
@@ -38,21 +39,21 @@ export function useMerchantDomain() {
     currencyAmount: number
   ) => {
     setIsLoading(true);
-    const result = await container.processVoiceSaleUseCase.execute({
-      spokenQuery,
-      matchedItemName,
-      currencyAmount,
-      paymentMethod: 'bluetooth_escrow',
-    });
-    setIsLoading(false);
-    if (result.isSuccess) {
-      const data = result.getValue();
+    try {
+      const data = await tpayApi.processVoiceSale({
+        spokenQuery,
+        matchedItemName,
+        currencyAmount,
+        paymentMethod: 'bluetooth_escrow',
+      });
       setFeedback(data.spokenConfirmation);
       await refresh();
       return data;
-    } else {
-      setFeedback(result.error);
-      throw new Error(result.error || 'Sale failed');
+    } catch (err: any) {
+      setFeedback(err.message);
+      throw err;
+    } finally {
+      setIsLoading(false);
     }
   };
 
