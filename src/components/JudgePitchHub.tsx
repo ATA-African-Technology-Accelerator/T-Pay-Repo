@@ -260,6 +260,27 @@ export function JudgePitchHub({ onTriggerDemoScenario, onResetDemoData, onClose 
               </button>
             </div>
           </div>
+
+          {/* Live Dual-Window P2P Mesh Testing Banner */}
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-red-950/40 via-slate-950 to-blue-950/40 border border-slate-800 flex flex-col md:flex-row items-center justify-between gap-3 text-xs">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-white font-semibold">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>Live Dual-Window Zero-Data Mesh Test</span>
+              </div>
+              <p className="text-slate-400 text-[11px]">
+                Open two separate browser tabs side by side. Transactions executed in Tab A (Buyer/Passenger) broadcast instant cryptographic vouchers to Tab B (Mama Nkechi / Morufu POS) with zero server latency!
+              </p>
+            </div>
+            <a
+              href="/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-medium text-xs whitespace-nowrap transition flex items-center gap-1.5 shrink-0"
+            >
+              <span>Open Second Window ↗</span>
+            </a>
+          </div>
         </div>
       )}
 

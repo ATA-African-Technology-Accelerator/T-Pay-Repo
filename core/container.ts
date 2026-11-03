@@ -6,7 +6,7 @@ import { LocalStorageTransitRepository } from './resource-tracking/transit/infra
 
 // Adapters
 import { PayPalSdkGatewayAdapter } from './escrow/infrastructure/adapters/PayPalSdkGatewayAdapter';
-import { MockProximityTransportAdapter } from './escrow/infrastructure/adapters/MockProximityTransportAdapter';
+import { BroadcastChannelProximityAdapter } from './escrow/infrastructure/adapters/BroadcastChannelProximityAdapter';
 import { LocalSLMAdapter } from './hybrid-assistant/infrastructure/adapters/LocalSLMAdapter';
 import { WebSpeechSynthesisAdapter } from './hybrid-assistant/infrastructure/adapters/WebSpeechSynthesisAdapter';
 
@@ -51,7 +51,7 @@ export class TPayContainer {
   public readonly transitRepository: LocalStorageTransitRepository;
 
   public readonly payPalGateway: PayPalSdkGatewayAdapter;
-  public readonly proximityTransport: MockProximityTransportAdapter;
+  public readonly proximityTransport: BroadcastChannelProximityAdapter;
   public readonly slmModel: LocalSLMAdapter;
   public readonly speechSynthesizer: WebSpeechSynthesisAdapter;
 
@@ -97,7 +97,7 @@ export class TPayContainer {
 
     // 2. Adapters
     this.payPalGateway = new PayPalSdkGatewayAdapter();
-    this.proximityTransport = new MockProximityTransportAdapter();
+    this.proximityTransport = new BroadcastChannelProximityAdapter();
     this.slmModel = new LocalSLMAdapter();
     this.speechSynthesizer = new WebSpeechSynthesisAdapter();
 

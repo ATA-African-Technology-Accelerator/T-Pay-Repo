@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Mic,
@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { BankAccount, SupportedLanguage } from '../types/banking';
 import { soundEffects } from '../utils/audio';
+import { container } from '../../core/container';
 
 interface VoiceAssistantModalProps {
   isOpen: boolean;
@@ -66,12 +67,94 @@ export function VoiceAssistantModal({
     }
   };
 
+  const recognitionRef = useRef<any>(null);
+
+  const startListening = () => {
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      const msg = "Live browser microphone speech recognition is not supported in this browser. Please tap any sample command below!";
+      setAiResponse(msg);
+      speakAloud(msg);
+      return;
+    }
+
+    try {
+      if (recognitionRef.current) {
+        recognitionRef.current.abort();
+      }
+
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.lang = language === 'en' ? 'en-NG' : 'en-US';
+
+      recognition.onstart = () => {
+        setIsListening(true);
+        setTranscript('Listening to your voice...');
+        soundEffects.playGateSound();
+      };
+
+      recognition.onresult = (event: any) => {
+        let interim = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            const finalTranscript = event.results[i][0].transcript.trim();
+            setIsListening(false);
+            processCommand(finalTranscript);
+            return;
+          } else {
+            interim += event.results[i][0].transcript;
+          }
+        }
+        if (interim) {
+          setTranscript(interim);
+        }
+      };
+
+      recognition.onerror = (event: any) => {
+        console.warn('[SpeechRecognition] error:', event.error);
+        setIsListening(false);
+        if (event.error === 'not-allowed') {
+          const errMsg = "Microphone access blocked. Please allow mic permissions in your browser or tap a preset prompt below.";
+          setAiResponse(errMsg);
+          speakAloud(errMsg);
+        }
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch (err) {
+      console.warn('[SpeechRecognition] failed to initialize:', err);
+      setIsListening(false);
+    }
+  };
+
+  const stopListening = () => {
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch {}
+    }
+    setIsListening(false);
+  };
+
   useEffect(() => {
     if (!isOpen) {
       setTranscript('');
       setAiResponse(null);
       setActiveActionDetails(null);
       setIsListening(false);
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort();
+        } catch {}
+      }
       if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
       }
@@ -115,6 +198,15 @@ export function VoiceAssistantModal({
     setTranscript(commandText);
     setIsListening(false);
     soundEffects.playGateSound();
+
+    // Trigger domain use case in background
+    container.processSpokenCommandUseCase
+      .execute({
+        transcript: commandText,
+        language,
+        executionMode: isLocalSLM ? 'offline_slm' : 'online_cloud',
+      })
+      .catch((e) => console.warn('[VoiceAssistant] Domain execution notice:', e));
 
     const lower = commandText.toLowerCase();
 
@@ -381,16 +473,25 @@ export function VoiceAssistantModal({
         <div className="overflow-y-auto flex-1 py-4 space-y-4 pr-1">
           {/* Animated Waveform Visualizer */}
           <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 flex flex-col items-center justify-center text-center space-y-3">
-            <div className="relative flex items-center justify-center w-20 h-20">
+            <button
+              onClick={() => (isListening ? stopListening() : startListening())}
+              type="button"
+              className="relative flex items-center justify-center w-20 h-20 rounded-full focus:outline-none focus:ring-2 focus:ring-red-500 cursor-pointer transition-transform active:scale-95 group"
+              title={isListening ? 'Click to stop listening' : 'Click to speak hands-free'}
+            >
               <div
-                className={`absolute inset-0 rounded-full bg-red-600/20 animate-ping ${
+                className={`absolute inset-0 rounded-full bg-red-600/30 animate-ping ${
                   isListening ? 'opacity-100' : 'opacity-0'
                 }`}
               />
-              <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-red-600 to-rose-600 flex items-center justify-center shadow-lg shadow-red-700/40">
-                <Mic className={`w-8 h-8 text-white ${isListening ? 'animate-pulse' : ''}`} />
+              <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-red-600 to-rose-600 flex items-center justify-center shadow-lg shadow-red-700/40 group-hover:scale-105 transition-all">
+                {isListening ? (
+                  <MicOff className="w-8 h-8 text-white animate-pulse" />
+                ) : (
+                  <Mic className="w-8 h-8 text-white" />
+                )}
               </div>
-            </div>
+            </button>
 
             {/* Audio Wave Bars */}
             <div className="flex items-center gap-1 h-6">
@@ -406,10 +507,13 @@ export function VoiceAssistantModal({
             <div className="text-xs text-slate-400">
               {isListening ? (
                 <span className="text-red-400 font-semibold animate-pulse">
-                  Listening in {language.toUpperCase()}...
+                  Listening in {language.toUpperCase()}... Speak now or tap to stop
                 </span>
               ) : (
-                <span>Tap a sample voice command below or speak naturally</span>
+                <span className="flex items-center gap-1.5 text-slate-300">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
+                  Tap microphone to speak hands-free or pick a prompt below
+                </span>
               )}
             </div>
           </div>
