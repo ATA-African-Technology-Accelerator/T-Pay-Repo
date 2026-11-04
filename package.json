@@ -11,6 +11,7 @@
     "lint": "tsc --noEmit",
     "backend:start": "node backend/src/server.ts",
     "docs:pdf": "node scripts/build-docs-pdf.mjs",
+    "docs:verify": "node scripts/verify-docs-pdf.mjs",
     "dev:full": "concurrently \"npm run dev\" \"npm run backend:start\""
   },
   "dependencies": {

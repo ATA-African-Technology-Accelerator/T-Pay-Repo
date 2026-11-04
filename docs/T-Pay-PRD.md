@@ -117,7 +117,7 @@ Gaps are traced to register items so that nothing in this section can be closed 
 
 ### 2.1 Functional gaps
 
-| ID | Gap | Traced to | Closed by |
+| ID | Gap | Item | Closed by |
 | :--- | :--- | :--- | :--- |
 | G-F01 | Devices have no cryptographic identity, so a peer cannot verify who signed a voucher. | W-08 | FR-01, FR-02, FR-03 |
 | G-F02 | Signatures are not signatures: a 32-bit string hash presented as HMAC-SHA256, with prefix-only verification. | W-09 | FR-11, DT-04 |
@@ -134,7 +134,7 @@ Gaps are traced to register items so that nothing in this section can be closed 
 
 ### 2.2 Non-functional gaps
 
-| ID | Gap | Traced to | Closed by |
+| ID | Gap | Item | Closed by |
 | :--- | :--- | :--- | :--- |
 | G-N01 | Storage is `localStorage`: 5 MB, synchronous, evictable, and silently lost when the origin is cleared. An offline payment that evaporates is worse than no payment. | W-22 | NFR-01 |
 | G-N02 | The PayPal client secret is written to browser `localStorage`. | W-13 | NFR-02, PP-02 |
@@ -560,7 +560,7 @@ The list in 1.11 is normative for the whole roadmap. No parked item may be start
 
 ## Appendix A. Evidence index
 
-| Path | Register items it supports |
+| Path | Supports |
 | :--- | :--- |
 | `core/shared/domain/` | W-01 |
 | `core/escrow/domain/` | W-02, W-06, W-11 |
@@ -588,7 +588,7 @@ The list in 1.11 is normative for the whole roadmap. No parked item may be start
 
 ## Appendix B. Trace from the source document
 
-| Source material | Requirement it produced | Status today |
+| Source material | Produces | Status today |
 | :--- | :--- | :--- |
 | Hybrid assistant that works online and offline (p1) | FR-31, FR-32 | Simulated |
 | Lightweight on-device model, any technology (p1) | FR-31 | Simulated |

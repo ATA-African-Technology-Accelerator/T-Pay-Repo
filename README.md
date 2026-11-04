@@ -11,7 +11,7 @@
 
 ---
 
-> **Project status (November 2026).** The claims below describe the target product, not the current build. An audit of the codebase found 7 of 23 capabilities met, 9 simulated or partial, and 7 missing — most importantly, device keys, voucher signatures and server-side settlement are prototypes. Read [docs/T-Pay-PRD.pdf](docs/T-Pay-PRD.pdf) for the itemized register, the requirement gaps, and the binding architecture rules; [docs/T-Pay-PRD.md](docs/T-Pay-PRD.md) is the editable source and `npm run docs:pdf` rebuilds it.
+> **Project status (November 2026).** The claims below describe the target product, not the current build. An audit of the codebase found 7 of 23 capabilities met, 9 simulated or partial, and 7 missing — most importantly, device keys, voucher signatures and server-side settlement are prototypes. Read [docs/T-Pay-PRD.pdf](docs/T-Pay-PRD.pdf) for the itemized register, the requirement gaps, and the binding architecture rules; [docs/T-Pay-PRD.md](docs/T-Pay-PRD.md) is the editable source, `npm run docs:pdf` rebuilds it, and `npm run docs:verify` fails if the committed PDF has drifted from that source.
 
 ---
 
