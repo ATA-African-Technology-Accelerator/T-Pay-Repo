@@ -17,7 +17,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { marked } from 'marked';
 import { createPrinter } from './lib/chrome-pdf.mjs';
-import { extractPageTexts, squash } from './lib/pdf-text.mjs';
+import { extractPageTexts } from './lib/pdf-text.mjs';
+import { contentsPageIndexes, locateHeadings } from './lib/prd-layout.mjs';
+import { verifyArtifact } from './verify-docs-pdf.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SOURCE = path.join(ROOT, 'docs/T-Pay-PRD.md');
@@ -390,46 +392,6 @@ function validateSource(markdown, html, meta) {
   return { sections, urls: new Set(sourceUrls).size };
 }
 
-/**
- * Reads the rendered PDF and reports which page (1-based) each heading starts
- * on. The contents pages themselves are skipped, and the search runs forward
- * from the previous heading so repeated wording cannot match an earlier page.
- */
-function locateHeadings(headings, pages) {
-  const firstBodyPage = pages.findIndex(
-    (text, index) => index > 0 && !squash(text).startsWith('Contents'),
-  );
-  if (firstBodyPage === -1) fail('Could not find the first body page in the rendered PDF.');
-
-  const pageMap = {};
-  let cursor = firstBodyPage;
-
-  for (const heading of headings) {
-    const needle = squash(heading.text);
-    if (!needle) continue;
-
-    let found = -1;
-    for (let index = cursor; index < pages.length; index += 1) {
-      if (squash(pages[index]).includes(needle)) {
-        found = index;
-        break;
-      }
-    }
-
-    if (found === -1) {
-      fail(`Heading not found in rendered PDF: "${heading.text}". The contents page would lie.`);
-    }
-
-    pageMap[heading.id] = found + 1;
-    cursor = found;
-  }
-
-  return pageMap;
-}
-
-function contentsPageCount(pages) {
-  return pages.filter((text, index) => index > 0 && squash(text).startsWith('Contents')).length;
-}
 
 function sameMap(left, right) {
   const keys = Object.keys(left);
@@ -470,7 +432,12 @@ async function main() {
 
       if (pages.length < MIN_PAGES) fail(`PDF is suspiciously short (${pages.length} pages).`);
 
-      const measured = locateHeadings(headings, pages);
+      let measured;
+      try {
+        measured = locateHeadings(headings, pages);
+      } catch (error) {
+        fail(`${error.message}. The contents page would lie.`);
+      }
       if (sameMap(measured, pageMap)) break;
 
       pageMap = measured;
@@ -480,7 +447,7 @@ async function main() {
     printer.close();
   }
 
-  const tocPages = contentsPageCount(pages);
+  const tocPages = contentsPageIndexes(pages).length;
   if (tocPages !== 1) fail(`Contents spilled onto ${tocPages} pages; it must fit on one.`);
 
   for (const heading of headings) {
@@ -488,6 +455,13 @@ async function main() {
   }
 
   await writeFile(PDF_PATH, pdf);
+
+  // The build is not done because a file exists; it is done when the file
+  // passes the same checks `npm run docs:verify` runs.
+  const { checks, failures } = await verifyArtifact();
+  if (failures.length > 0) {
+    fail(`post-build verification failed: ${failures.slice(0, 3).join('; ')}`);
+  }
 
   const kb = (pdf.length / 1024).toFixed(0);
   const sample = headings.slice(0, 6).map((heading) => `${pageMap[heading.id]}  ${heading.text}`);
@@ -504,6 +478,7 @@ async function main() {
   headings  ${headings.length} (all numbered)
   urls      ${urls}
   passes    ${passes} (contents resolved against rendered pages)
+  verified  ${checks.length} checks, 0 failures
   ────────────────────────────────────────────
   contents sample
 ${sample.map((line) => `    p${line}`).join('\n')}

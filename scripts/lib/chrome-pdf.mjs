@@ -95,6 +95,23 @@ class Devtools {
 }
 
 /**
+ * Chrome stamps a creation date and a random document id, so identical input
+ * produces different bytes. Both are rewritten in place with fixed values of
+ * the same width — same length, therefore every cross-reference offset stays
+ * valid — which makes a rebuild byte-identical and a diff meaningful.
+ */
+function stabilize(pdf) {
+  const text = pdf.toString('latin1')
+    .replace(/(\/CreationDate\s*\()([^)]*)(\))/g, (_, open, value, close) =>
+      `${open}D:${'0'.repeat(Math.max(14, value.length - 2))}Z${close}`)
+    .replace(/(\/ModDate\s*\()([^)]*)(\))/g, (_, open, value, close) =>
+      `${open}D:${'0'.repeat(Math.max(14, value.length - 2))}Z${close}`)
+    .replace(/(\/ID\s*\[)([^\]]*)(\])/g, (_, open, body, close) =>
+      `${open}${body.replace(/[0-9A-Fa-f]/g, '0')}${close}`);
+  return Buffer.from(text, 'latin1');
+}
+
+/**
  * Starts one browser and prints any number of HTML files with it.
  * Call `close()` when finished.
  */
@@ -170,7 +187,7 @@ export async function createPrinter({ footer } = {}) {
         sessionId,
       );
 
-      return Buffer.from(data, 'base64');
+      return stabilize(Buffer.from(data, 'base64'));
     },
 
     close() {
