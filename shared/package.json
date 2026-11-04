@@ -1,0 +1,16 @@
+{
+  "name": "@tpay/shared",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "test:domain": "tsx src/__tests__/domain-verification.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "tsx": "^4.21.0"
+  }
+}

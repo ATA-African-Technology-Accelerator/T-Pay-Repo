@@ -606,24 +606,25 @@ Rules that rely on memory are not rules. The first two gates start in M0, and th
 
 ### 6.6 Project structure
 
-The repository root has three workspaces. The offline payment cannot call a server, so the phone must be able to sign and verify vouchers itself. The backend must apply the same rules when settling, so those rules live once in `shared/` (AR-04).
+The repository root has three project folders. The offline payment cannot call a server, so the phone must be able to sign and verify vouchers itself. The backend must apply the same rules when settling, so those rules live once in `shared/` (AR-04).
 
 ```
 T-Pay/
-  frontend/     Expo Android app
-    src/screens/         app interface
-    src/components/      reusable interface parts
-    src/adapters/        keys, SQLite, QR, speech
-    src/composition/     app wiring
-  backend/      Server functions on Render
-    src/routes/          HTTP API
-    src/services/        settlement, certificates, ledger
-    src/adapters/        PayPal, Postgres, Gemini
-    src/composition/     server wiring
-  shared/       Payment rules used by both
-    src/domain/          vault, voucher, money, certificates
-    src/application/     use cases and ports
-  docs/         PRD and generated documents
+  frontend/                  Everything the user sees
+    App.tsx, app.json        Expo Android app, rebuilt in M2
+    web-prototype/           Retired web demo, kept as design reference
+  backend/                   Server functions on Render
+    src/controllers/         HTTP handlers
+    src/routes/              HTTP API
+    src/services/            settlement, certificates, ledger (M1 onwards)
+    src/adapters/            PayPal, Postgres, Gemini (M1 onwards)
+  shared/                    Payment rules used by both
+    src/escrow/              vault, voucher, device identity
+    src/shared/              money, result, aggregate base
+    src/resource-tracking/   merchant, budget, transit
+    src/hybrid-assistant/    intent and language rules
+  docs/                      PRD and generated documents
+  scripts/                   document build scripts
 ```
 
 | Folder | Holds | Must never hold |
@@ -632,7 +633,7 @@ T-Pay/
 | `backend/` | API, PayPal, Postgres, certificates, settlement, ledger, Gemini | Device private keys or interface code |
 | `shared/` | Pure TypeScript domain and application rules | Expo, Express, database, network or secret code |
 
-Current paths migrate as follows: `react-native-app/` becomes `frontend/`; `core/` moves into `shared/`, with platform adapters moved to the app or server; `backend/` is reorganised in place. The web `src/` folder is removed after its useful designs are rebuilt in `frontend/`.
+The root is an npm workspace. The backend and web prototype import rules from `@tpay/shared`, and the Expo app joins the workspace in M2. The old paths moved as follows: `react-native-app/` became `frontend/`; web `src/` became `frontend/web-prototype/`; `core/` became `shared/src/`. Evidence paths in section 1 and Appendix A refer to the audited commit `8da2e8d`. Browser adapters and the shared composition root are still in `shared/src/` and move out or are replaced during M1.
 
 ## 7. Roadmap
 

@@ -1,14 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
-import { container } from '../../core/container';
+import { container } from '@tpay/shared/container';
 import * as tpayApi from '../api/tpayApi';
-import { DomainEventBus } from '../../core/shared/domain/DomainEventBus';
-import type { SupportedLanguage, ExecutionMode } from '../../core/hybrid-assistant/domain/value-objects/VoiceIntent';
-import type { InventoryItem } from '../../core/resource-tracking/merchant/domain/InventoryItem';
-import type { MerchantSale } from '../../core/resource-tracking/merchant/domain/entities/MerchantSale';
-import type { BudgetCategory } from '../../core/resource-tracking/budget/domain/entities/BudgetCategory';
-import type { ExpenseRecord } from '../../core/resource-tracking/budget/domain/entities/ExpenseRecord';
-import type { PassengerSeat } from '../../core/resource-tracking/transit/domain/entities/PassengerSeat';
-import type { OfflineEscrowToken } from '../../core/escrow/domain/OfflineEscrowToken';
+import { DomainEventBus } from '@tpay/shared/shared/domain/DomainEventBus';
+import type { SupportedLanguage, ExecutionMode } from '@tpay/shared/hybrid-assistant/domain/value-objects/VoiceIntent';
+import type { InventoryItem } from '@tpay/shared/resource-tracking/merchant/domain/InventoryItem';
+import type { MerchantSale } from '@tpay/shared/resource-tracking/merchant/domain/entities/MerchantSale';
+import type { BudgetCategory } from '@tpay/shared/resource-tracking/budget/domain/entities/BudgetCategory';
+import type { ExpenseRecord } from '@tpay/shared/resource-tracking/budget/domain/entities/ExpenseRecord';
+import type { PassengerSeat } from '@tpay/shared/resource-tracking/transit/domain/entities/PassengerSeat';
+import type { OfflineEscrowToken } from '@tpay/shared/escrow/domain/OfflineEscrowToken';
 
 /**
  * React Hook for Merchant Sub-domain Use Cases

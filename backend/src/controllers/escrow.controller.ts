@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import { container } from '../../../core/container';
+import { container } from '@tpay/shared/container';
 
 export class EscrowController {
   public static async createEscrow(req: Request, res: Response): Promise<void> {

@@ -94,7 +94,7 @@ flowchart TD
 
 ## 3. Detailed Bounded Context Breakdown
 
-### 3.1 Bounded Context: Offline Escrow & PayPal Settlement (`core/escrow/`)
+### 3.1 Bounded Context: Offline Escrow & PayPal Settlement (`shared/src/escrow/`)
 - **Aggregate Root**: `OfflineEscrowToken`
   - Enforces default offline blackout invariant.
   - States: `OFFLINE_CREATED` → `PEER_ACKNOWLEDGED` → `SYNCING_TO_PAYPAL` → `PAYPAL_SETTLED` (or `FAILED`).
@@ -114,7 +114,7 @@ flowchart TD
 
 ---
 
-### 3.2 Bounded Context: Smart Resource Tracker (`core/resource-tracking/`)
+### 3.2 Bounded Context: Smart Resource Tracker (`shared/src/resource-tracking/`)
 
 #### Sub-domain A: Merchant / Trader
 - **Aggregate Root**: `InventoryItem`
@@ -152,7 +152,7 @@ flowchart TD
 
 ---
 
-### 3.3 Bounded Context: Hybrid AI Assistant (`core/hybrid-assistant/`)
+### 3.3 Bounded Context: Hybrid AI Assistant (`shared/src/hybrid-assistant/`)
 - **Intent Parsing & Zero-Data SLM**:
   - `LocalSLMAdapter`: Lightweight mobile intent tokenizer capable of full offline execution.
   - Recognizes `COLLECT_MERCHANT_PAYMENT`, `BULK_SETUP_INVENTORY`, `DEDUCT_BUDGET_EXPENSE`, `COLLECT_TRANSIT_FARES`, `DAILY_RECONCILIATION`.
@@ -165,11 +165,11 @@ flowchart TD
 
 ## 4. Verification Suite
 
-All domain models, invariant rules, and use cases are verified with an executable test suite in [`core/__tests__/domain-verification.ts`](file:///home/gamp/Desktop/T-Pay-Repo/core/__tests__/domain-verification.ts).
+All domain models, invariant rules, and use cases are verified with an executable test suite in [`shared/src/__tests__/domain-verification.ts`](./shared/src/__tests__/domain-verification.ts).
 
 Run verification:
 ```bash
-node --experimental-strip-types --loader ./ts-loader.mjs core/__tests__/domain-verification.ts
+npm run test:domain
 ```
 
 Output:

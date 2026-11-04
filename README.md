@@ -6,7 +6,7 @@
 [![React 19](https://img.shields.io/badge/React-19.0-61DAFB?style=flat&logo=react&logoColor=black)](https://react.dev/)
 [![React Native Expo](https://img.shields.io/badge/Expo-52.0-000020?style=flat&logo=expo&logoColor=white)](https://expo.dev/)
 [![DDD Clean Architecture](https://img.shields.io/badge/Architecture-DDD%20Clean%20Architecture-10b981?style=flat)](./DDD_ARCHITECTURE.md)
-[![Verification Suite](https://img.shields.io/badge/Tests-9%2F9%20Passed%20(100%25)-brightgreen?style=flat)](./core/__tests__/domain-verification.ts)
+[![Verification Suite](https://img.shields.io/badge/Tests-9%2F9%20Passed%20(100%25)-brightgreen?style=flat)](./shared/src/__tests__/domain-verification.ts)
 [![PayPal Hackathon](https://img.shields.io/badge/PayPal-Offline%20Escrow%20Ready-003087?style=flat&logo=paypal&logoColor=white)](https://developer.paypal.com/)
 
 ---
@@ -81,10 +81,10 @@ flowchart TD
 
 ## 🏗️ 3. Clean Architecture & Domain-Driven Design (DDD)
 
-The codebase strictly adheres to DDD Clean Architecture in [`core/`](./core/):
+The codebase strictly adheres to DDD Clean Architecture in [`shared/src/`](./shared/src/):
 
 ```
-core/
+shared/src/
 ├── banking/              # BankAccount Aggregate, Balance Value Object
 ├── escrow/               # Time-Locked Market Vault & Offline Escrow Tokens
 │   ├── domain/           # MarketVault Aggregate Root, Domain Events
@@ -100,7 +100,7 @@ core/
 
 To run the architectural domain verification suite:
 ```bash
-node --loader ./ts-loader.mjs core/__tests__/domain-verification.ts
+npm run test:domain
 ```
 
 ---
@@ -122,9 +122,12 @@ Open **[http://localhost:3000](http://localhost:3000)** in your browser.
 
 ```bash
 # 1. Navigate to the mobile app directory
-cd react-native-app
+cd frontend
 
-# 2. Start the Expo development server
+# 2. Install the app's own dependencies
+npm install
+
+# 3. Start the Expo development server
 npm start
 # or: npx expo start --web
 ```

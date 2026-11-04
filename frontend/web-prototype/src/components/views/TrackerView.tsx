@@ -40,7 +40,7 @@ import {
   KoropeSeat,
 } from '../../types/banking';
 import { soundEffects } from '../../utils/audio';
-import { container } from '../../../core/container';
+import { container } from '@tpay/shared/container';
 
 interface TrackerViewProps {
   onBackToDashboard: () => void;

@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { BankAccount, SupportedLanguage } from '../types/banking';
 import { soundEffects } from '../utils/audio';
-import { container } from '../../core/container';
+import { container } from '@tpay/shared/container';
 
 interface VoiceAssistantModalProps {
   isOpen: boolean;

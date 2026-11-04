@@ -1,6 +1,0 @@
-{
-  "summary":  "Implementation plan for configuring the hamburger menu navigation where 'Accounts' opens the primary T-Pay swipable accounts page (Checking, Savings, Offline Checking) and 'Dashboard' shows the executive overview stats, alongside Tracker, History, and Settings.",
-  "updatedAt":  "2026-10-28T21:32:01.732843340Z",
-  "requestFeedback":  true,
-  "userFacing":  true
-}
