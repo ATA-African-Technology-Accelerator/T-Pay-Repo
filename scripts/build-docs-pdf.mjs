@@ -360,11 +360,11 @@ ${bodyHtml}
 
 function validateSource(markdown, html, meta) {
   const required = [
-    'W-01', 'W-23',
-    'FR-01', 'FR-35',
-    'NFR-01', 'NFR-14',
-    'PP-01', 'PP-12',
-    'DT-01', 'DT-08',
+    'W-01', 'W-26',
+    'FR-01', 'FR-47',
+    'NFR-01', 'NFR-15',
+    'PP-01', 'PP-16',
+    'DT-01', 'DT-10',
     'AR-01', 'AR-09',
     'M0', 'M10',
   ];

@@ -25,15 +25,15 @@ const DEFAULT_MARKDOWN = path.join(ROOT, 'docs/T-Pay-PRD.md');
 const DEFAULT_PDF = path.join(ROOT, 'docs/T-Pay-PRD.pdf');
 
 const ID_GROUPS = [
-  { prefix: 'W-', count: 23 },
-  { prefix: 'FR-', count: 35 },
-  { prefix: 'NFR-', count: 14 },
-  { prefix: 'PP-', count: 12 },
-  { prefix: 'DT-', count: 8 },
+  { prefix: 'W-', count: 26 },
+  { prefix: 'FR-', count: 47 },
+  { prefix: 'NFR-', count: 15 },
+  { prefix: 'PP-', count: 16 },
+  { prefix: 'DT-', count: 10 },
   { prefix: 'AR-', count: 9 },
-  { prefix: 'G-F', count: 12 },
-  { prefix: 'G-N', count: 9 },
-  { prefix: 'O-', count: 6 },
+  { prefix: 'G-F', count: 16 },
+  { prefix: 'G-N', count: 10 },
+  { prefix: 'O-', count: 10 },
 ];
 
 const SECTIONS = [
@@ -45,6 +45,7 @@ const SECTIONS = [
   '6.Architecturecontract',
   '7.Roadmap',
   '8.Openinputs',
+  '9.Hackathondelivery',
 ];
 
 /** Headings the markdown promises, in document order. */
@@ -150,7 +151,7 @@ export async function verifyArtifact({ markdownPath = DEFAULT_MARKDOWN, pdfPath 
   const missingUrls = urls.filter((url) => !squished.includes(squash(url)));
   add(`all ${urls.length} source urls are printed`, missingUrls.length === 0, missingUrls.slice(0, 2).join(', '));
 
-  add('all eight sections are printed', SECTIONS.every((section) => squished.includes(section)));
+  add('all nine sections are printed', SECTIONS.every((section) => squished.includes(section)));
   add('both appendices are printed and numbered',
     entries.some((entry) => entry.title.startsWith('Appendix A'))
     && entries.some((entry) => entry.title.startsWith('Appendix B')));
