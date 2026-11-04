@@ -2,20 +2,22 @@
 /**
  * Builds docs/T-Pay-PRD.pdf from docs/T-Pay-PRD.md.
  *
- * Markdown -> self-contained print HTML -> PDF, rendered by the Chrome that is
- * already installed. Chrome is driven over the DevTools protocol (instead of the
- * --print-to-pdf flag) so the footer can carry real running page numbers.
+ * Markdown -> self-contained print HTML -> PDF, rendered by the installed
+ * Chrome. The contents page is resolved honestly: the document is rendered,
+ * the PDF is read back to find the page each heading actually landed on, those
+ * numbers are written into the contents, and the cycle repeats until the
+ * numbers stop moving. A reader therefore sees real page numbers rather than
+ * a guess.
  *
  * Usage: npm run docs:pdf
  */
 
-import { spawn } from 'node:child_process';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { marked } from 'marked';
+import { createPrinter } from './lib/chrome-pdf.mjs';
+import { extractPageTexts, squash } from './lib/pdf-text.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SOURCE = path.join(ROOT, 'docs/T-Pay-PRD.md');
@@ -23,25 +25,12 @@ const BUILD_DIR = path.join(ROOT, 'docs/.build');
 const HTML_PATH = path.join(BUILD_DIR, 'T-Pay-PRD.html');
 const PDF_PATH = path.join(ROOT, 'docs/T-Pay-PRD.pdf');
 
-const CHROME_CANDIDATES = [
-  process.env.CHROME_PATH,
-  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-  '/Applications/Chromium.app/Contents/MacOS/Chromium',
-  '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
-  '/usr/bin/google-chrome',
-  '/usr/bin/chromium',
-  '/usr/bin/chromium-browser',
-];
+const MAX_PASSES = 6;
+const MIN_PAGES = 8;
 
 function fail(message) {
   console.error(`\n  ✗ ${message}\n`);
   process.exit(1);
-}
-
-function findChrome() {
-  const found = CHROME_CANDIDATES.find((candidate) => candidate && existsSync(candidate));
-  if (!found) fail('No Chrome or Chromium binary found. Set CHROME_PATH to one.');
-  return found;
 }
 
 /** Minimal front-matter parser: `key: value` pairs between leading --- markers. */
@@ -89,7 +78,7 @@ const STYLES = `
     margin: 0;
     color: var(--ink);
     font: 10.5pt/1.55 "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
-    /* Ligatures turn "office" into glyphs that copy-paste as "o\uFB03ce". A document
+    /* Ligatures turn "office" into glyphs that copy-paste as "o\\uFB03ce". A document
        people will search and quote is worth more than the ligature. */
     font-variant-ligatures: none;
     hyphens: none;
@@ -164,17 +153,6 @@ const STYLES = `
     padding: 4pt 5pt;
     vertical-align: top;
   }
-  /* Identifier columns: never let "W-23" or "G-N05" break across lines. */
-  /* Reference tokens such as FR-07 must never break after the hyphen. */
-  .ref { white-space: nowrap; }
-
-  th:first-child,
-  td:first-child {
-    white-space: nowrap;
-    width: 1%;
-  }
-  td:first-child code,
-  th:first-child code { white-space: nowrap; }
   tr { break-inside: avoid; page-break-inside: avoid; }
   tbody tr:nth-child(even) { background: #fbfcfd; }
   a { color: var(--accent); text-decoration: none; word-break: break-all; }
@@ -187,6 +165,9 @@ const STYLES = `
     font-style: italic;
   }
   hr { border: none; border-top: 0.6pt solid var(--rule); margin: 14pt 0; }
+
+  /* Reference tokens such as FR-07 must never break after the hyphen. */
+  .ref { white-space: nowrap; }
 
   /* Cover */
   .cover {
@@ -247,42 +228,76 @@ const STYLES = `
     margin-bottom: 12pt;
   }
 
-  /* Contents */
+  /* Contents: two columns so all entries fit a single page */
   .toc { break-after: page; page-break-after: always; }
   .toc-title {
     font-size: 15pt;
     border-bottom: 1.5pt solid var(--ink);
     padding-bottom: 5pt;
-    margin-bottom: 12pt;
+    margin: 0 0 9pt;
   }
-  .toc ol { list-style: none; padding: 0; margin: 0; }
+  .toc ol {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    columns: 2;
+    column-gap: 9mm;
+    column-fill: balance;
+  }
   .toc li {
+    display: flex;
+    align-items: baseline;
+    gap: 3pt;
     font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-    font-size: 10pt;
-    padding: 3.5pt 0;
-    border-bottom: 0.4pt dotted #cfd6de;
+    font-size: 8.7pt;
+    line-height: 1.3;
+    padding: 1.9pt 0;
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
-  .toc li a { color: var(--ink); }
-  .toc .toc-h3 {
-    font-size: 9pt;
+  .toc .t { flex: 0 1 auto; }
+  .toc .leader {
+    flex: 1 1 auto;
+    min-width: 5pt;
+    border-bottom: 0.5pt dotted #c7cfd8;
+    margin-bottom: 2.2pt;
+  }
+  .toc .pg {
+    flex: 0 0 auto;
     color: var(--muted);
-    padding-left: 14pt;
-    border-bottom: none;
+    font-size: 8.4pt;
+    font-variant-numeric: tabular-nums;
   }
+  .toc .toc-h3 { padding-left: 9pt; font-size: 8.2pt; }
+  .toc .toc-h3 .t { color: #414a55; }
 
   /* Sections */
   .section { break-before: page; page-break-before: always; }
   .section:first-of-type { break-before: auto; page-break-before: auto; }
 `;
 
-function buildToc(headings) {
-  const items = headings
-    .map((heading) => {
-      const cls = heading.level === 3 ? ' class="toc-h3"' : '';
-      return `<li${cls}><a href="#${heading.id}">${escapeHtml(heading.text)}</a></li>`;
-    })
-    .join('\n');
-  return `<section class="toc">\n<div class="toc-title">Contents</div>\n<ol>\n${items}\n</ol>\n</section>`;
+function renderBody(markdown) {
+  const renderer = new marked.Renderer();
+  const headings = [];
+
+  renderer.heading = ({ tokens, depth }) => {
+    const text = marked.Parser.parseInline(tokens, { renderer });
+    const plain = text.replace(/<[^>]+>/g, '');
+    const id = slugify(plain);
+    if (depth === 2 || depth === 3) headings.push({ level: depth, text: plain, id });
+    const cls = depth === 2 ? ' class="section"' : '';
+    return `<h${depth} id="${id}"${cls}>${text}</h${depth}>`;
+  };
+
+  const rendered = marked.parse(markdown, { renderer, gfm: true, breaks: false });
+
+  // Requirement ids are plain text in narrow table cells, where a default line
+  // break can land after the hyphen and print "FR-" above "07". Keep them whole.
+  const html = rendered.replace(/\b(NFR|FR|PP|DT|AR|G-F|G-N|W|O)-(\d{2})\b/g, (match) =>
+    `<span class="ref">${match}</span>`,
+  );
+
+  return { html, headings };
 }
 
 function buildCover(meta) {
@@ -307,30 +322,41 @@ function buildCover(meta) {
 </section>`;
 }
 
-function renderBody(markdown) {
-  const renderer = new marked.Renderer();
-  const headings = [];
+/** Contents page. `pageMap` is keyed by heading id; missing entries render blank. */
+function buildContents(headings, pageMap) {
+  const entries = headings
+    .map((heading) => {
+      const cls = heading.level === 3 ? ' class="toc-h3"' : '';
+      const page = pageMap[heading.id] ?? '';
+      return `<li${cls}><span class="t">${escapeHtml(heading.text)}</span><span class="leader"></span><span class="pg">${page}</span></li>`;
+    })
+    .join('\n');
 
-  renderer.heading = ({ tokens, depth }) => {
-    const text = marked.Parser.parseInline(tokens, { renderer });
-    const plain = text.replace(/<[^>]+>/g, '');
-    const id = slugify(plain);
-    if (depth === 2 || depth === 3) headings.push({ level: depth, text: plain, id });
-    const cls = depth === 2 ? ' class="section"' : '';
-    return `<h${depth} id="${id}"${cls}>${text}</h${depth}>`;
-  };
-
-  const rendered = marked.parse(markdown, { renderer, gfm: true, breaks: false });
-
-  // Requirement ids are plain text in narrow table cells, where a default line
-  // break can land after the hyphen and print "FR-" above "07". Keep them whole.
-  const html = rendered.replace(/\b(NFR|FR|PP|DT|AR|G-F|G-N|W|O)-(\d{2})\b/g, (match) =>
-    `<span class="ref">${match}</span>`,
-  );
-  return { html, headings };
+  return `<section class="toc">
+  <div class="toc-title">Contents</div>
+  <ol>
+${entries}
+  </ol>
+</section>`;
 }
 
-function validate(markdown, html, meta) {
+function buildDocument(meta, headings, bodyHtml, pageMap) {
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>${escapeHtml(meta.title ?? 'T-Pay')} — ${escapeHtml(meta.subtitle ?? 'PRD')}</title>
+<style>${STYLES}</style>
+</head>
+<body>
+${buildCover(meta)}
+${buildContents(headings, pageMap)}
+${bodyHtml}
+</body>
+</html>`;
+}
+
+function validateSource(markdown, html, meta) {
   const required = [
     'W-01', 'W-23',
     'FR-01', 'FR-35',
@@ -348,16 +374,15 @@ function validate(markdown, html, meta) {
     { pattern: /\*\*/, label: 'unparsed bold markers' },
     { pattern: /^\s*\|?\s*:?-{3,}/m, label: 'unparsed table separator' },
     { pattern: /^\s*---\s*$/m, label: 'unparsed horizontal rule' },
-    { pattern: /\{\{|\}\}/, label: 'template braces' },
   ];
 
   for (const leak of leaks) {
     if (leak.pattern.test(html)) fail(`Markdown leak in output: ${leak.label}`);
   }
 
-  const sourceUrls = [...markdown.matchAll(/https?:\/\/[^\s|)]+/g)].map((m) => m[0]);
-  const droppedUrls = [...new Set(sourceUrls)].filter((url) => !html.includes(url.replace(/&/g, '&amp;')));
-  if (droppedUrls.length) fail(`URLs missing from output: ${droppedUrls.slice(0, 3).join(', ')}`);
+  const sourceUrls = [...markdown.matchAll(/https?:\/\/[^\s|)]+/g)].map((match) => match[0]);
+  const dropped = [...new Set(sourceUrls)].filter((url) => !html.includes(url.replace(/&/g, '&amp;')));
+  if (dropped.length) fail(`URLs missing from output: ${dropped.slice(0, 3).join(', ')}`);
 
   const sections = (markdown.match(/^## /gm) ?? []).length;
   if (sections === 0) fail('No top-level sections found in source.');
@@ -365,211 +390,123 @@ function validate(markdown, html, meta) {
   return { sections, urls: new Set(sourceUrls).size };
 }
 
-/** Chrome DevTools Protocol client: enough to render one page and print it. */
-class Devtools {
-  #socket;
-  #nextId = 1;
-  #pending = new Map();
-  #listeners = [];
-
-  constructor(socket) {
-    this.#socket = socket;
-    socket.addEventListener('message', (event) => {
-      const message = JSON.parse(event.data);
-      if (message.id && this.#pending.has(message.id)) {
-        const { resolve, reject } = this.#pending.get(message.id);
-        this.#pending.delete(message.id);
-        message.error ? reject(new Error(message.error.message)) : resolve(message.result);
-        return;
-      }
-      for (const listener of this.#listeners) listener(message);
-    });
-  }
-
-  static async connect(url) {
-    const socket = new WebSocket(url);
-    await new Promise((resolve, reject) => {
-      socket.addEventListener('open', resolve, { once: true });
-      socket.addEventListener('error', () => reject(new Error('DevTools websocket failed')), { once: true });
-    });
-    return new Devtools(socket);
-  }
-
-  send(method, params = {}, sessionId) {
-    const id = this.#nextId++;
-    const payload = { id, method, params };
-    if (sessionId) payload.sessionId = sessionId;
-    return new Promise((resolve, reject) => {
-      this.#pending.set(id, { resolve, reject });
-      this.#socket.send(JSON.stringify(payload));
-    });
-  }
-
-  onEvent(listener) {
-    this.#listeners.push(listener);
-  }
-
-  once(method, sessionId, timeoutMs = 30000) {
-    return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error(`Timed out waiting for ${method}`)), timeoutMs);
-      const listener = (message) => {
-        if (message.method !== method) return;
-        if (sessionId && message.sessionId !== sessionId) return;
-        clearTimeout(timer);
-        this.#listeners = this.#listeners.filter((entry) => entry !== listener);
-        resolve(message.params);
-      };
-      this.onEvent(listener);
-    });
-  }
-
-  close() {
-    this.#socket.close();
-  }
-}
-
-function launchChrome(binary) {
-  const profile = path.join(tmpdir(), `tpay-docs-chrome-${process.pid}`);
-  const child = spawn(
-    binary,
-    [
-      '--headless=new',
-      '--disable-gpu',
-      '--no-first-run',
-      '--no-default-browser-check',
-      '--disable-extensions',
-      '--disable-background-networking',
-      '--remote-debugging-port=0',
-      `--user-data-dir=${profile}`,
-      'about:blank',
-    ],
-    { stdio: ['ignore', 'pipe', 'pipe'] },
+/**
+ * Reads the rendered PDF and reports which page (1-based) each heading starts
+ * on. The contents pages themselves are skipped, and the search runs forward
+ * from the previous heading so repeated wording cannot match an earlier page.
+ */
+function locateHeadings(headings, pages) {
+  const firstBodyPage = pages.findIndex(
+    (text, index) => index > 0 && !squash(text).startsWith('Contents'),
   );
+  if (firstBodyPage === -1) fail('Could not find the first body page in the rendered PDF.');
 
-  const endpoint = new Promise((resolve, reject) => {
-    let buffer = '';
-    const timer = setTimeout(() => reject(new Error('Chrome did not expose a DevTools endpoint')), 30000);
-    const inspect = (chunk) => {
-      buffer += chunk.toString();
-      const match = buffer.match(/DevTools listening on (ws:\/\/\S+)/);
-      if (match) {
-        clearTimeout(timer);
-        resolve(match[1]);
+  const pageMap = {};
+  let cursor = firstBodyPage;
+
+  for (const heading of headings) {
+    const needle = squash(heading.text);
+    if (!needle) continue;
+
+    let found = -1;
+    for (let index = cursor; index < pages.length; index += 1) {
+      if (squash(pages[index]).includes(needle)) {
+        found = index;
+        break;
       }
-    };
-    child.stderr.on('data', inspect);
-    child.stdout.on('data', inspect);
-    child.on('exit', (code) => {
-      clearTimeout(timer);
-      reject(new Error(`Chrome exited early with code ${code}`));
-    });
-  });
+    }
 
-  return { child, endpoint, profile };
-}
+    if (found === -1) {
+      fail(`Heading not found in rendered PDF: "${heading.text}". The contents page would lie.`);
+    }
 
-const FOOTER = `
-<div style="width:100%;padding:0 18mm;font-family:Helvetica,Arial,sans-serif;font-size:7.5pt;color:#8a929c;display:flex;justify-content:space-between;border-top:0.4pt solid #e2e6eb;padding-top:3mm;">
-  <span>T-Pay — Product Requirements Document</span>
-  <span><span class="pageNumber"></span> / <span class="totalPages"></span></span>
-</div>`;
-
-async function renderPdf(htmlPath, pdfPath) {
-  const { child, endpoint } = launchChrome(findChrome());
-
-  let client;
-  try {
-    client = await Devtools.connect(await endpoint);
-
-    const { targetId } = await client.send('Target.createTarget', { url: 'about:blank' });
-    const { sessionId } = await client.send('Target.attachToTarget', { targetId, flatten: true });
-
-    await client.send('Page.enable', {}, sessionId);
-    await client.send('Emulation.setEmulatedMedia', { media: 'print' }, sessionId);
-
-    const loaded = client.once('Page.loadEventFired', sessionId);
-    await client.send('Page.navigate', { url: `file://${htmlPath}` }, sessionId);
-    await loaded;
-
-    await client.send(
-      'Runtime.evaluate',
-      { expression: 'document.fonts.ready.then(() => true)', awaitPromise: true },
-      sessionId,
-    );
-
-    const { data } = await client.send(
-      'Page.printToPDF',
-      {
-        printBackground: true,
-        displayHeaderFooter: true,
-        headerTemplate: '<div></div>',
-        footerTemplate: FOOTER,
-        paperWidth: 8.27,
-        paperHeight: 11.69,
-        marginTop: 0.75,
-        marginBottom: 0.72,
-        marginLeft: 0.71,
-        marginRight: 0.71,
-        preferCSSPageSize: false,
-      },
-      sessionId,
-    );
-
-    await writeFile(pdfPath, Buffer.from(data, 'base64'));
-  } finally {
-    client?.close();
-    child.kill('SIGKILL');
+    pageMap[heading.id] = found + 1;
+    cursor = found;
   }
+
+  return pageMap;
 }
 
-function countPages(pdf) {
-  const matches = pdf.toString('latin1').match(/\/Type\s*\/Page[^s]/g);
-  return matches ? matches.length : 0;
+function contentsPageCount(pages) {
+  return pages.filter((text, index) => index > 0 && squash(text).startsWith('Contents')).length;
+}
+
+function sameMap(left, right) {
+  const keys = Object.keys(left);
+  if (keys.length !== Object.keys(right).length) return false;
+  return keys.every((key) => left[key] === right[key]);
 }
 
 async function main() {
   const markdown = await readFile(SOURCE, 'utf8');
   const { meta, body } = splitFrontMatter(markdown);
   const { html, headings } = renderBody(body);
-  const { sections, urls } = validate(body, html, meta);
+  const { sections, urls } = validateSource(body, html, meta);
 
   if (headings.length === 0) fail('No headings were extracted, so the contents page would be empty.');
 
-  const documentHtml = `<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<title>${escapeHtml(meta.title ?? 'T-Pay')} — ${escapeHtml(meta.subtitle ?? 'PRD')}</title>
-<style>${STYLES}</style>
-</head>
-<body>
-${buildCover(meta)}
-${buildToc(headings)}
-${html}
-</body>
-</html>`;
-
   await mkdir(BUILD_DIR, { recursive: true });
-  await writeFile(HTML_PATH, documentHtml, 'utf8');
-  await renderPdf(HTML_PATH, PDF_PATH);
 
-  const pdf = await readFile(PDF_PATH);
-  const pages = countPages(pdf);
-  if (pdf.subarray(0, 5).toString() !== '%PDF-') fail('Output is not a PDF.');
-  if (pages < 8) fail(`PDF is suspiciously short (${pages} pages).`);
+  const printer = await createPrinter({
+    footer: `
+<div style="width:100%;padding:0 18mm;font-family:Helvetica,Arial,sans-serif;font-size:7.5pt;color:#8a929c;display:flex;justify-content:space-between;border-top:0.4pt solid #e2e6eb;padding-top:3mm;">
+  <span>T-Pay — Product Requirements Document</span>
+  <span><span class="pageNumber"></span> / <span class="totalPages"></span></span>
+</div>`,
+  });
+
+  let pageMap = {};
+  let pdf = null;
+  let pages = [];
+  let passes = 0;
+
+  try {
+    for (let attempt = 0; attempt < MAX_PASSES; attempt += 1) {
+      passes = attempt + 1;
+      await writeFile(HTML_PATH, buildDocument(meta, headings, html, pageMap), 'utf8');
+
+      pdf = await printer.print(HTML_PATH);
+      pages = extractPageTexts(pdf);
+
+      if (pages.length < MIN_PAGES) fail(`PDF is suspiciously short (${pages.length} pages).`);
+
+      const measured = locateHeadings(headings, pages);
+      if (sameMap(measured, pageMap)) break;
+
+      pageMap = measured;
+      if (attempt === MAX_PASSES - 1) fail('Contents page numbers never settled; the layout is unstable.');
+    }
+  } finally {
+    printer.close();
+  }
+
+  const tocPages = contentsPageCount(pages);
+  if (tocPages !== 1) fail(`Contents spilled onto ${tocPages} pages; it must fit on one.`);
+
+  for (const heading of headings) {
+    if (!pageMap[heading.id]) fail(`Contents has no page number for "${heading.text}".`);
+  }
+
+  await writeFile(PDF_PATH, pdf);
 
   const kb = (pdf.length / 1024).toFixed(0);
+  const sample = headings.slice(0, 6).map((heading) => `${pageMap[heading.id]}  ${heading.text}`);
+
   console.log(`
   T-Pay PRD built
   ────────────────────────────────────────────
   source    docs/T-Pay-PRD.md
   html      ${path.relative(ROOT, HTML_PATH)}
   pdf       ${path.relative(ROOT, PDF_PATH)}
-  pages     ${pages}
+  pages     ${pages.length}
   size      ${kb} KB
   sections  ${sections}
-  headings  ${headings.length}
+  headings  ${headings.length} (all numbered)
   urls      ${urls}
+  passes    ${passes} (contents resolved against rendered pages)
+  ────────────────────────────────────────────
+  contents sample
+${sample.map((line) => `    p${line}`).join('\n')}
   ────────────────────────────────────────────
 `);
 }
