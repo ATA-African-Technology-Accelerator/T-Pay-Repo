@@ -21,7 +21,7 @@ import { extractPageTexts } from './lib/pdf-text.mjs';
 import { contentsPageIndexes, locateHeadings } from './lib/prd-layout.mjs';
 import { verifyArtifact } from './verify-docs-pdf.mjs';
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const SOURCE = path.join(ROOT, 'docs/T-Pay-PRD.md');
 const BUILD_DIR = path.join(ROOT, 'docs/.build');
 const HTML_PATH = path.join(BUILD_DIR, 'T-Pay-PRD.html');

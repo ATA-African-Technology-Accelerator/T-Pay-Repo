@@ -165,10 +165,11 @@ flowchart TD
 
 ## 4. Verification Suite
 
-All domain models, invariant rules, and use cases are verified with an executable test suite in [`shared/src/__tests__/domain-verification.ts`](./shared/src/__tests__/domain-verification.ts).
+All domain models, invariant rules, and use cases are verified with an executable test suite in [`shared/src/__tests__/domain-verification.ts`](../shared/src/__tests__/domain-verification.ts).
 
 Run verification:
 ```bash
+cd backend
 npm run test:domain
 ```
 

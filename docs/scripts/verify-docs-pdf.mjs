@@ -20,7 +20,7 @@ import { fileURLToPath } from 'node:url';
 import { extractPageTexts, squash } from './lib/pdf-text.mjs';
 import { contentsPageIndexes, locateHeadings, parseContents } from './lib/prd-layout.mjs';
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const DEFAULT_MARKDOWN = path.join(ROOT, 'docs/T-Pay-PRD.md');
 const DEFAULT_PDF = path.join(ROOT, 'docs/T-Pay-PRD.pdf');
 

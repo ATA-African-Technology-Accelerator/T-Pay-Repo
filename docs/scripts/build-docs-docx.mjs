@@ -31,7 +31,7 @@ import {
 } from 'docx';
 import { marked } from 'marked';
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const SOURCE = path.join(ROOT, 'docs/T-Pay-PRD.md');
 const OUTPUT = path.join(ROOT, 'docs/T-Pay-PRD.docx');
 
