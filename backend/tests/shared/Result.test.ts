@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {Result } from '@tpay/shared/shared/domain/Result';
+import { Result } from '@tpay/shared/shared/domain/Result';
 
 
 
