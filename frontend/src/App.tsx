@@ -18,6 +18,7 @@ import { Credit, Request } from './features/collect';
 import { Activity, Assist, Ledger, Proposal, SettingsScreen, Speak } from './features/lists';
 import { Melt, VaultActive, VaultReview, VaultScreen } from './features/vault';
 import { Lock } from './features/lock';
+import { Receive, SendDone, SendReview, SendTo } from './features/send';
 import { Help } from './features/help';
 import { Receipt } from './features/receipt';
 
@@ -40,7 +41,11 @@ function render(r: Route) {
     case 'proposal': return <Proposal amount={r.amount} offline={r.offline} />;
     case 'assist': return <Assist />;
     case 'settings': return <SettingsScreen />;
-    case 'amount': return <Amount mode={r.mode} />;
+    case 'amount': return <Amount mode={r.mode} to={r.to} />;
+    case 'sendTo': return <SendTo />;
+    case 'sendReview': return <SendReview amount={r.amount} to={r.to} />;
+    case 'sendDone': return <SendDone amount={r.amount} to={r.to} id={r.id} />;
+    case 'receive': return <Receive />;
     case 'scan': return <Scan kind={r.kind ?? 'request'} amount={r.amount ?? 0} />;
     case 'review': return <Review amount={r.amount} />;
     case 'refused': return <Refused amount={r.amount} />;

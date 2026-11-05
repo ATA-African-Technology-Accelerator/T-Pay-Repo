@@ -17,11 +17,11 @@ function greeting() {
   return h < 12 ? t.morning : h < 17 ? t.afternoon : t.evening;
 }
 
-function Page({ page, width }: { page: WalletPage; width: number }) {
+function Page({ page, width, shown }: { page: WalletPage; width: number; shown: boolean }) {
   const { hidden, toggleHidden } = useStore();
   const Vis = hidden ? EyeOff : Eye;
   return (
-    <View style={[h.page, { width }]}>
+    <View style={[h.page, { width }]} aria-hidden={!shown} importantForAccessibility={shown ? 'auto' : 'no-hide-descendants'}>
       <View style={h.money}>
         <View style={h.labelRow}>
           <T v="small" c={color.white}>{page.label}</T>
@@ -107,7 +107,7 @@ export function Hero({ name, pages, wallet, onWallet }: { name: string; pages: W
         onScrollBeginDrag={() => { heading.current = null; }}
         style={h.pager} accessibilityHint={t.swipeWallets}
       >
-        {pages.map(p => <Page key={p.key} page={p} width={width} />)}
+        {pages.map(p => <Page key={p.key} page={p} width={width} shown={p.key === wallet} />)}
       </ScrollView>
       <View style={h.dots} importantForAccessibility="no">
         {pages.map(p => <View key={p.key} style={[h.dot, p.key === wallet && h.dotOn]} />)}

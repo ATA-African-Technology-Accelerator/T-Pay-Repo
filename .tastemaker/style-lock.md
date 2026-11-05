@@ -6,7 +6,7 @@ Tokens: frontend/src/theme/tokens.ts is the only place colours, type, spacing an
 Use the reference for layout and colour direction only. Its crypto content and brand marks stay out of the product.
 
 ## Direction
-Near-black page, quiet panels without borders, one blue glow behind the hero, glass round actions under the balance, a single notice card, one account that can pay and collect, two swipeable wallets (Offline, Active) in the hero with their names always visible, one Recent transactions panel with See all, a PIN lock screen, a receipt for every transaction, Help one tap from home, a raised frosted-glass mic in the middle of the menu, large calm keypad for amounts.
+Near-black page, quiet panels without borders, one blue glow behind the hero, glass round actions under the balance, a single notice card, one account that can send and receive (by T-Pay number with network, by codes without), two swipeable wallets (Offline, Active) in the hero with their names always visible, one Recent transactions panel with See all, a PIN lock screen, a receipt for every transaction, Help one tap from home, a raised frosted-glass mic in the middle of the menu, large calm keypad for amounts.
 
 ## Colour contract
 Page #050608. Panel #111317. Raised #1A1E24. Line #262B33. Text #F3F5F9. Muted #9AA6B8.

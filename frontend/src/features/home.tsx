@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import { ArrowDown, ArrowLeftRight, Globe, Landmark, Lock, Plus, ReceiptText, ScanLine } from 'lucide-react-native';
+import { ArrowDown, ArrowLeftRight, ArrowUp, Globe, Landmark, Lock, Plus, ReceiptText } from 'lucide-react-native';
 import { color, radius, space } from '../theme/tokens';
 import { Panel, Press, Rise, T, money } from '../components/ui';
 import { Screen, Section } from '../components/shell';
@@ -41,10 +41,13 @@ function Notice({ icon, title, note, onPress }: { icon: React.ReactNode; title: 
 /** One home for everyone. The same person can pay and collect, from the same two wallets. */
 export function HomeScreen() {
   const nav = useNav();
-  const { name, locked, left, pending, incoming, closing, active, history, wallet, setWallet } = useStore();
+  const { name, number, locked, left, pending, incoming, closing, active, history, wallet, setWallet } = useStore();
   const lockMore = () => nav.go({ name: 'amount', mode: 'lock' });
-  const pay = { label: t.scan, icon: <ScanLine {...ic} />, onPress: () => nav.go({ name: 'scan' }) };
-  const collect = { label: t.collectShort, icon: <ArrowDown {...ic} />, onPress: () => nav.go({ name: 'amount', mode: 'collect' }) };
+  // The same two words in both wallets. With network they go by number; without it, phone to phone.
+  const sendOffline = { label: t.scan, icon: <ArrowUp {...ic} />, onPress: () => nav.go({ name: 'scan' }) };
+  const sendActive = { label: t.scan, icon: <ArrowUp {...ic} />, onPress: () => nav.go({ name: 'sendTo' }) };
+  const recvOffline = { label: t.collectShort, icon: <ArrowDown {...ic} />, onPress: () => nav.go({ name: 'amount', mode: 'collect' }) };
+  const recvActive = { label: t.collectShort, icon: <ArrowDown {...ic} />, onPress: () => nav.go({ name: 'receive' }) };
   const lock = { label: t.lockShort, icon: <Plus {...ic} />, onPress: lockMore };
   const activity = { label: t.activity, icon: <ReceiptText {...ic} />, onPress: () => nav.reset({ name: 'activity' }) };
   const empty = left === 0;
@@ -52,14 +55,14 @@ export function HomeScreen() {
   const pages: WalletPage[] = [
     {
       key: 'offline', name: t.walletOffline, status: empty ? t.noVault : t.readyOffline, label: t.canSpend, amount: left, note: moving,
-      actions: empty ? [lock, collect, activity] : [pay, collect, lock, activity],
+      actions: empty ? [lock, recvOffline, activity] : [sendOffline, recvOffline, lock, activity],
     },
     {
-      key: 'active', name: t.walletActive, status: t.readyActive, label: t.availableNow, amount: active,
+      key: 'active', name: t.walletActive, status: `${t.tpayNumber} ${number}`, label: t.availableNow, amount: active,
       actions: [
-        { label: t.moveOffline, icon: <ArrowLeftRight {...ic} />, onPress: lockMore },
+        sendActive, recvActive,
+        { label: t.moveShort, icon: <ArrowLeftRight {...ic} />, onPress: lockMore },
         { label: t.received, icon: <Landmark {...ic} />, onPress: () => nav.go({ name: 'ledger' }) },
-        activity,
       ],
     },
   ];

@@ -7,7 +7,7 @@ import { Avatar, CurvedHeader, Screen } from '../components/shell';
 import { HoldToConfirm, NoteStack, SampleCode, StatusMark, Steps } from '../components/money';
 import { Duo } from '../components/rows';
 import { useNav } from '../nav';
-import { DEMO_RATE, useStore } from '../demo/store';
+import { Contact, DEMO_RATE, useStore } from '../demo/store';
 import { t } from '../i18n/en';
 import { CheckDisc, NairaDisc, WalletDisc } from '../components/icons';
 
@@ -15,21 +15,22 @@ const MAX = 200000;
 const HOURS = [6, 12, 24];
 
 /** Amount entry: one calm panel for the figure, the action, then a large keypad. */
-export function Amount({ mode }: { mode: 'lock' | 'collect' }) {
+export function Amount({ mode, to }: { mode: 'lock' | 'collect' | 'send'; to?: Contact }) {
   const nav = useNav();
   const { active } = useStore();
   const lock = mode === 'lock';
-  const cap = lock ? active : MAX;
+  const sending = mode === 'send' && !!to;
+  const cap = lock || sending ? active : MAX;
   const [amount, setAmount] = useState(0);
   const [hours, setHours] = useState(24);
-  const next = () => nav.go(lock ? { name: 'vaultReview', amount, hours } : { name: 'request', amount });
+  const next = () => nav.go(sending ? { name: 'sendReview', amount, to: to! } : lock ? { name: 'vaultReview', amount, hours } : { name: 'request', amount });
   const press = (k: string) => setAmount(a => (k === 'del' ? Math.floor(a / 10) : Math.min(Number(`${a}${k}`), cap)));
   return (
-    <Screen head={<CurvedHeader back bell={false} title={lock ? t.howMuchLock : t.howMuchCollect} />}>
+    <Screen head={<CurvedHeader back bell={false} title={sending ? t.howMuchSend : lock ? t.howMuchLock : t.howMuchCollect} />}>
       <Panel style={p.amount}>
-        <T v="small" c={color.muted}>{lock ? t.amountLock : t.amountCollect}</T>
+        <T v="small" c={color.muted} numberOfLines={1}>{sending ? `${t.sendingTo} ${to!.name}` : lock ? t.amountLock : t.amountCollect}</T>
         <T v="moneyL" c={amount ? color.text : color.muted} numberOfLines={1} accessibilityLiveRegion="polite">{naira(amount)}</T>
-        {lock && <T v="small" c={color.muted}>{`${t.availableNow}: ${money(active)}`}</T>}
+        {(lock || sending) && <T v="small" c={color.muted}>{`${t.availableNow}: ${money(active)}`}</T>}
       </Panel>
       {lock && (
         <View style={{ gap: space.sm }} accessibilityRole="radiogroup" accessibilityLabel={t.howLong}>
@@ -85,8 +86,8 @@ export function Scan({ kind, amount }: { kind: 'request' | 'voucher' | 'receipt'
       <T v="body" c={color.muted} style={p.center}>{cfg.hint}</T>
       <T v="small" c={color.muted} style={p.center}>{t.demo}</T>
       {kind === 'request' && <>
-        <Button label="Seller asks ₦2,000" onPress={() => ask(2000)} />
-        <Button label="Seller asks ₦90,000" kind="soft" onPress={() => ask(90000)} />
+        <Button label={t.sampleAsk2000} onPress={() => ask(2000)} />
+        <Button label={t.sampleAsk90000} kind="soft" onPress={() => ask(90000)} />
       </>}
       {kind === 'voucher' && <>
         <Button label={t.sampleValid} onPress={() => nav.reset({ name: 'credit', amount })} />

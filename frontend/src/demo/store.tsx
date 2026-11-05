@@ -6,6 +6,7 @@ export type Status = 'paid' | 'locked' | 'pending' | 'sent' | 'refused' | 'block
 export type Dir = 'in' | 'out' | 'lock';
 export type Entry = { id: string; who: string; amount: number; dir: Dir; status: Status; when: string; ref: string; capture?: string };
 export type Wallet = 'active' | 'offline';
+export type Contact = { name: string; number: string };
 
 const SELLER = 'Mama Nkechi Provisions';
 const now = () => 'Just now';
@@ -13,12 +14,16 @@ export const SPENT = 6000;
 export const DEMO_RATE = 1500;
 
 type Store = {
-  name: string; setName(n: string): void; payout: string; setPayout(e: string): void; seller: string;
+  name: string; number: string; contacts: Contact[]; setName(n: string): void; payout: string; setPayout(e: string): void; seller: string;
   wallet: Wallet; setWallet(w: Wallet): void; hidden: boolean; toggleHidden(): void;
   active: number; locked: number; left: number; pending: number; incoming: number; paidIn: number; closing: boolean;
   history: Entry[]; blocking?: Entry;
-  lock(n: number): void; pay(n: number): void; receive(n: number): void; melt(): void;
+  send(n: number, to: Contact): string; lock(n: number): void; pay(n: number): void; receive(n: number): void; melt(): void;
 };
+
+const CONTACTS: Contact[] = [
+  { name: SELLER, number: '8034567890' }, { name: 'Iya Bose Foods', number: '8023456789' }, { name: 'Emeka Okafor', number: '8045678901' },
+];
 
 const Ctx = createContext<Store | null>(null);
 
@@ -47,10 +52,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const incoming = sum(e => e.dir === 'in' && e.status === 'pending');
     const paidIn = sum(e => e.dir === 'in' && e.status === 'paid');
     return {
-      name, setName, payout, setPayout, seller: SELLER,
+      name, number: '8012345678', contacts: CONTACTS, setName, payout, setPayout, seller: SELLER,
       wallet, setWallet, hidden, toggleHidden: () => setHidden(x => !x),
       active: base + paidIn, locked, left: Math.max(0, locked - pending), pending, incoming, paidIn, closing,
       history, blocking: history.find(e => e.dir === 'out' && e.status === 'pending'),
+      send: (n, to) => {
+        const id = String(Date.now());
+        setBase(b => b - n);
+        setHistory(h => [{ id, who: to.name, amount: n, dir: 'out', status: 'paid', when: now(), ref: `txn_${id}` }, ...h]);
+        return id;
+      },
       lock: n => {
         setLocked(l => l + n); setBase(b => b - n); setClosing(false);
         add({ who: 'Money locked', amount: n, dir: 'lock', status: 'locked', ref: `vlt_${Date.now()}` });

@@ -1,11 +1,13 @@
 // Small stack navigator for the design pass. Expo Router replaces it during the app restructure.
 import React, { createContext, useContext } from 'react';
+import { Contact } from './demo/store';
 
 export type Route =
   | { name: 'splash' } | { name: 'language' } | { name: 'details' } | { name: 'lock' }
   | { name: 'home' } | { name: 'activity' } | { name: 'vault' } | { name: 'speak' } | { name: 'settings' } | { name: 'help' } | { name: 'ledger' }
   | { name: 'receipt'; id: string }
-  | { name: 'amount'; mode: 'lock' | 'collect' }
+  | { name: 'amount'; mode: 'lock' | 'collect' | 'send'; to?: Contact }
+  | { name: 'sendTo' } | { name: 'sendReview'; amount: number; to: Contact } | { name: 'sendDone'; amount: number; to: Contact; id: string } | { name: 'receive' }
   | { name: 'vaultReview'; amount: number; hours: number } | { name: 'vaultActive'; amount: number; hours: number } | { name: 'melt' }
   | { name: 'scan'; kind?: 'request' | 'voucher' | 'receipt'; amount?: number }
   | { name: 'review'; amount: number } | { name: 'refused'; amount: number }
