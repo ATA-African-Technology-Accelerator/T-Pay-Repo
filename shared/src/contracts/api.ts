@@ -27,6 +27,7 @@ export interface RegisterDeviceRequest {
   proof: string;
 }
 
+
 export interface RegisterDeviceResponse {
   deviceId: string;
   keyId: string;
@@ -35,10 +36,56 @@ export interface RegisterDeviceResponse {
   assuranceTier: 'B';
 }
 
+
+export interface ProfileView {
+  deviceId: string;
+  displayName: string;
+  role: DeviceRole;
+  language: Language;
+  payoutEmail: string | null;
+  assuranceTier: 'B';
+  createdAt: string;
+}
+
+
+export interface UpdateProfileRequest {
+  displayName?: string;
+  language?: Language;
+  payoutEmail?: string;
+}
+
+export type TransactionType =
+  | 'VAULT_LOCKED'
+  | 'VAULT_RELEASED'
+  | 'VOUCHER_SUBMITTED'
+  | 'VOUCHER_SETTLED'
+  | 'VOUCHER_REJECTED'
+  | 'WITHDRAWAL_REQUESTED'
+  | 'WITHDRAWAL_COMPLETED';
+
+export interface TransactionView {
+  transactionId: string;
+  type: TransactionType;
+  amountNgnMinor: number | null;
+  amountUsdMinor: number | null;
+  vaultId: string | null;
+  voucherId: string | null;
+  paypalReferenceId: string | null;
+  occurredAt: string;
+}
+
+
+export interface ListTransactionsResponse {
+  items: TransactionView[];
+  nextCursor: string | null;
+}
+
+
 export interface CreateVaultRequest {
   amountNgnMinor: number;
   durationHours: number;
 }
+
 
 export interface CreateVaultResponse {
   vaultId: string;
@@ -48,6 +95,7 @@ export interface CreateVaultResponse {
   fxRate: string;
   approvalUrl: string;
 }
+
 
 export interface VaultView {
   vaultId: string;
@@ -63,18 +111,22 @@ export interface VaultView {
   paypalAuthorizationId: string;
 }
 
+
 export interface AuthorizeVaultResponse {
   vault: VaultView;
   vaultCertificate: SignedVaultCertificate;
 }
 
+
 export interface CurrentVaultResponse {
   vault: VaultView | null;
 }
 
+
 export interface MeltVaultRequest {
   spendStatement: SignedEnvelope<SpendStatementPayload>;
 }
+
 
 export interface MeltVaultResponse {
   vaultId: string;
@@ -84,11 +136,13 @@ export interface MeltVaultResponse {
   blockingVoucherIds: string[];
 }
 
+
 export interface SubmitVoucherRequest {
   voucher: SignedEnvelope<VoucherPayload>;
   vaultCertificate: SignedVaultCertificate;
   receipt?: SignedEnvelope<ReceiptPayload>;
 }
+
 
 export interface SubmitVoucherResponse {
   voucherId: string;
@@ -110,10 +164,12 @@ export interface VoucherView {
   updatedAt: string;
 }
 
+
 export interface ListVouchersResponse {
   items: VoucherView[];
   nextCursor: string | null;
 }
+
 
 export interface LedgerEntry {
   entryId: string;
@@ -124,21 +180,25 @@ export interface LedgerEntry {
   createdAt: string;
 }
 
+
 export interface MerchantLedgerResponse {
   balanceUsdMinor: number;
   pendingNgnMinor: number;
   entries: LedgerEntry[];
 }
 
+
 export interface WithdrawRequest {
   amountUsdMinor: number;
 }
+
 
 export interface WithdrawResponse {
   withdrawalId: string;
   status: 'PENDING' | 'COMPLETED' | 'FAILED';
   paypalBatchId: string;
 }
+
 
 export type AssistantIntent =
   | 'CREATE_PAYMENT_REQUEST'
@@ -157,6 +217,7 @@ export interface InterpretRequest {
     remainingNgnMinor: number;
   };
 }
+
 
 export interface InterpretResponse {
   proposal: {

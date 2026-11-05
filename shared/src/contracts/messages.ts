@@ -1,8 +1,9 @@
-import type { DeviceRole } from './statuses';
+import type { DeviceRole, Language } from './statuses';
 
 
 
 export const MESSAGE_PREFIX = {
+  REGISTRATION: 'TPAY-REGISTER-V1',
   DEVICE_CERTIFICATE: 'TPAY-DEVICE-CERT-V1',
   VAULT_CERTIFICATE: 'TPAY-VAULT-CERT-V1',
   PAYMENT_REQUEST: 'TPAY-REQUEST-V1',
@@ -15,6 +16,15 @@ export const MESSAGE_PREFIX = {
 export interface SignedEnvelope<T> {
   payload: T;
   signature: string;
+}
+
+
+export interface RegistrationProofPayload {
+  publicKey: string;
+  displayName: string;
+  role: DeviceRole;
+  language: Language;
+  payoutEmail: string | null;
 }
 
 

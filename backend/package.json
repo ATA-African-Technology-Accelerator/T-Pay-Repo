@@ -8,14 +8,16 @@
     "dev": "tsx watch src/server.ts",
     "lint": "tsc --noEmit -p . && tsc --noEmit -p ../shared",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "keys:root": "tsx scripts/generateRootKey.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
     "@tpay/shared": "file:../shared",
     "dotenv": "^17.2.3",
     "express": "^4.21.2",
-    "tsx": "^4.21.0"
+    "tsx": "^4.21.0",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@noble/curves": "^2.4.0",
