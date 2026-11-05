@@ -1,9 +1,11 @@
 export abstract class ValueObject<T extends object> {
   public readonly props: Readonly<T>;
 
+  
   protected constructor(props: T) {
     this.props = Object.freeze({ ...props });
   }
+
 
   public equals(other?: ValueObject<T>): boolean {
     if (!other) {
