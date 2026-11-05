@@ -1,0 +1,15 @@
+{
+  "name": "tpay-docs",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "pdf": "node scripts/build-docs-pdf.mjs",
+    "verify": "node scripts/verify-docs-pdf.mjs",
+    "docx": "node scripts/build-docs-docx.mjs"
+  },
+  "devDependencies": {
+    "docx": "^9.15.2",
+    "marked": "^18.1.3"
+  }
+}

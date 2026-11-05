@@ -5,13 +5,13 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3+-3178C6?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![React 19](https://img.shields.io/badge/React-19.0-61DAFB?style=flat&logo=react&logoColor=black)](https://react.dev/)
 [![React Native Expo](https://img.shields.io/badge/Expo-52.0-000020?style=flat&logo=expo&logoColor=white)](https://expo.dev/)
-[![DDD Clean Architecture](https://img.shields.io/badge/Architecture-DDD%20Clean%20Architecture-10b981?style=flat)](./DDD_ARCHITECTURE.md)
-[![Verification Suite](https://img.shields.io/badge/Tests-9%2F9%20Passed%20(100%25)-brightgreen?style=flat)](./core/__tests__/domain-verification.ts)
+[![DDD Clean Architecture](https://img.shields.io/badge/Architecture-DDD%20Clean%20Architecture-10b981?style=flat)](./docs/DDD_ARCHITECTURE.md)
+[![Verification Suite](https://img.shields.io/badge/Tests-9%2F9%20Passed%20(100%25)-brightgreen?style=flat)](./shared/src/__tests__/domain-verification.ts)
 [![PayPal Hackathon](https://img.shields.io/badge/PayPal-Offline%20Escrow%20Ready-003087?style=flat&logo=paypal&logoColor=white)](https://developer.paypal.com/)
 
 ---
 
-> **Project status (November 2026).** The claims below describe the target product, not the current build. An audit of the codebase found 7 of 23 capabilities met, 9 simulated or partial, and 7 missing — most importantly, device keys, voucher signatures and server-side settlement are prototypes. Read [docs/T-Pay-PRD.pdf](docs/T-Pay-PRD.pdf) for the itemized register, the requirement gaps, and the binding architecture rules; [docs/T-Pay-PRD.md](docs/T-Pay-PRD.md) is the editable source, `npm run docs:pdf` rebuilds it, and `npm run docs:verify` fails if the committed PDF has drifted from that source.
+> **Project status (November 2026).** The claims below describe the target product, not the current build. An audit of the codebase found 7 of 23 capabilities met, 9 simulated or partial, and 7 missing — most importantly, device keys, voucher signatures and server-side settlement are prototypes. Read [docs/T-Pay-PRD.pdf](docs/T-Pay-PRD.pdf) for the itemized register, the requirement gaps, and the binding architecture rules; [docs/T-Pay-PRD.md](docs/T-Pay-PRD.md) is the editable source, running `npm run pdf` in `docs/` rebuilds it, and `npm run verify` fails if the committed PDF has drifted from that source.
 
 ---
 
@@ -81,10 +81,10 @@ flowchart TD
 
 ## 🏗️ 3. Clean Architecture & Domain-Driven Design (DDD)
 
-The codebase strictly adheres to DDD Clean Architecture in [`core/`](./core/):
+The codebase strictly adheres to DDD Clean Architecture in [`shared/src/`](./shared/src/):
 
 ```
-core/
+shared/src/
 ├── banking/              # BankAccount Aggregate, Balance Value Object
 ├── escrow/               # Time-Locked Market Vault & Offline Escrow Tokens
 │   ├── domain/           # MarketVault Aggregate Root, Domain Events
@@ -100,31 +100,44 @@ core/
 
 To run the architectural domain verification suite:
 ```bash
-node --loader ./ts-loader.mjs core/__tests__/domain-verification.ts
+cd backend
+npm run test:domain
 ```
 
 ---
 
 ## 🚀 4. Quickstart Guide
 
-### Option A: React Web Application (Vite + Tailwind CSS)
+### Backend
 
 ```bash
-# 1. Install dependencies
+cd backend
 npm install
+npm start
+```
 
-# 2. Launch development server
+The API runs on port 4000. Copy `backend/.env.example` to `backend/.env` for local settings.
+
+### Web prototype (retired, design reference only)
+
+```bash
+cd frontend/web-prototype
+npm install
 npm run dev
 ```
+
 Open **[http://localhost:3000](http://localhost:3000)** in your browser.
 
-### Option B: React Native Mobile App (Expo)
+### Mobile app (Expo)
 
 ```bash
 # 1. Navigate to the mobile app directory
-cd react-native-app
+cd frontend
 
-# 2. Start the Expo development server
+# 2. Install the app's own dependencies
+npm install
+
+# 3. Start the Expo development server
 npm start
 # or: npx expo start --web
 ```

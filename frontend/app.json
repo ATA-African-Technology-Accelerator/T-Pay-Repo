@@ -1,0 +1,30 @@
+{
+  "expo": {
+    "name": "T-Pay",
+    "slug": "tpay-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "backgroundColor": "#050608"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.tpay.mobile"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#050608"
+      },
+      "package": "com.tpay.mobile"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": [
+      "expo-font",
+      "expo-asset"
+    ]
+  }
+}

@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import { container } from '../../../core/container';
+import { container } from '@tpay/shared/container';
 
 export class InventoryController {
   public static async getInventory(req: Request, res: Response): Promise<void> {
