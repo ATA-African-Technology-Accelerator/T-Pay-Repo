@@ -7,3 +7,10 @@ docs/.build/
 *.log
 .env*
 !.env.examplei created a branch backend w
+
+
+**/.env
+**/.env.*
+
+# Explicitly allow .env.example files to be tracked and pushed
+!**/.env.example
