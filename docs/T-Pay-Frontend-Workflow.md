@@ -128,7 +128,7 @@ If delivery fails, resend the same voucher bytes. Never sign the same payment ag
 | ID | Screen and trigger | App steps | Network | Result |
 | :--- | :--- | :--- | :--- | :--- |
 | ACT-10 | Background, on connectivity or app open | Upload unsettled vouchers, then read updates | `POST /vouchers`, `GET /vouchers` | Local status updated with no tap |
-| ACT-11 | Transaction list and detail | Read local data, refresh detail if online | `GET /vouchers/{id}` | Shows status and capture ID |
+| ACT-11 | Transaction list and detail | Read local data, refresh detail and history if online | `GET /vouchers/{id}`, `GET /transactions` | Shows status and capture ID |
 | ACT-12 | Customer melts the vault | Stop signing, create spend statement, submit | `POST /vaults/{id}/melt` | Released now, or shows scheduled release and blocking voucher |
 | ACT-13 | Merchant ledger | Read balance and entries | `GET /merchants/me/ledger` | Shows credits linked to captures |
 | ACT-14 | Merchant withdraws (P1) | Confirm amount and submit | `POST /merchants/me/withdrawals` | Pending withdrawal |
@@ -141,7 +141,7 @@ Only a backend response may set `SETTLED`. The phone must never decide this itse
 | :--- | :--- | :--- | :--- | :--- |
 | ACT-15 | Assistant | Capture speech or text, send it, validate the proposal, pre-fill the screen, ask the person to confirm | `POST /assistant/interpret` | Proposal goes to ACT-06, ACT-07 or ACT-17 |
 | ACT-15 offline | Assistant with no network | Use the shared rule-based parser, or tap and type input | None | Labelled as offline assistance |
-| ACT-16 | Settings | Change language, view key and assurance tier | None | Strings update everywhere |
+| ACT-16 | Settings | Change language, view profile, key and assurance tier | `GET /profile`, `PATCH /profile` | Strings and profile update everywhere |
 | ACT-17 | Merchant sale (P1) | Use shared merchant rules and speak stock result | None | Stock updated locally |
 
 The assistant never signs, never skips confirmation, and never receives keys or tokens.

@@ -40,12 +40,12 @@ P0 must work in the demo. P1 follows only after every P0 activity is verified.
 | ACT-08 | Merchant verifies voucher and presents receipt | Merchant | Offline | None | FR-36 to FR-39 | P0 |
 | ACT-09 | Customer scans receipt | Customer | Offline | None | FR-22, FR-38 | P0 |
 | ACT-10 | Background sync and settlement | Both | Reconnect | `POST /vouchers`, `GET /vouchers` | FR-15, FR-23, FR-24, FR-44 | P0 |
-| ACT-11 | Transaction list and detail | Both | Offline first | `GET /vouchers/{id}` when online | FR-20, FR-22 | P0 |
+| ACT-11 | Transaction list and detail | Both | Offline first | `GET /vouchers/{id}`, `GET /transactions` when online | FR-20, FR-22 | P0 |
 | ACT-12 | Melt vault | Customer | Online | `POST /vaults/{id}/melt` | FR-09, FR-39 | P0 |
 | ACT-13 | Merchant ledger | Merchant | Online | `GET /merchants/me/ledger` | FR-40 | P0 |
 | ACT-14 | Withdraw to PayPal | Merchant | Online | `POST /merchants/me/withdrawals` | FR-41 | P1 |
 | ACT-15 | Voice assistant | Both | Online, with offline fallback | `POST /assistant/interpret` | FR-31 to FR-34, FR-46 | P0 |
-| ACT-16 | Settings and device trust | Both | Offline | None | FR-04, FR-33 | P0 |
+| ACT-16 | Settings, profile and device trust | Both | Offline first | `GET /profile`, `PATCH /profile` when online | FR-04, FR-33 | P0 |
 | ACT-17 | Voice sale and stock | Merchant | Offline | None | FR-26, FR-27 | P1 |
 
 Three endpoints have no screen, and they are the only exceptions:
@@ -353,6 +353,66 @@ Response `200` when dependencies are reachable, `503` otherwise:
 { "data": { "status": "ok", "database": "ok", "paypal": "ok", "mode": "sandbox" } }
 ```
 
+
+
+### 4.15 GET /profile
+
+Called by ACT-16. Response `200`:
+
+```json
+{
+  "data": {
+    "deviceId": "dev_123",
+    "displayName": "Mama Nkechi Provisions",
+    "role": "MERCHANT",
+    "language": "pcm",
+    "payoutEmail": "merchant-sandbox@example.com",
+    "assuranceTier": "B",
+    "createdAt": "2026-11-06T10:00:00Z"
+  }
+}
+```
+
+### 4.16 PATCH /profile
+
+Called by ACT-16. All fields are optional. The role cannot change.
+
+```json
+{ "displayName": "Mama Nkechi Stores", "language": "yo", "payoutEmail": "merchant-sandbox@example.com" }
+```
+
+Response `200` returns the same object as `GET /profile`. Errors: `VALIDATION_FAILED`.
+
+### 4.17 GET /transactions
+
+Called by ACT-11. Query: `since` is an optional cursor. Returns the permanent history for the calling device.
+
+```json
+{
+  "data": {
+    "items": [
+      {
+        "transactionId": "txn_1",
+        "type": "VOUCHER_SETTLED",
+        "amountNgnMinor": 200000,
+        "amountUsdMinor": 133,
+        "vaultId": "vlt_123",
+        "voucherId": "vch_456",
+        "paypalReferenceId": "SANDBOX-CAPTURE",
+        "occurredAt": "2026-11-08T12:00:00Z"
+      }
+    ],
+    "nextCursor": null
+  }
+}
+```
+
+Types are `VAULT_LOCKED`, `VAULT_RELEASED`, `VOUCHER_SUBMITTED`, `VOUCHER_SETTLED`, `VOUCHER_REJECTED`, `WITHDRAWAL_REQUESTED` and `WITHDRAWAL_COMPLETED`.
+
+
+
+
+
 ## 5. Offline messages
 
 These are signed objects carried between phones and later to the backend. They are created and verified only through `shared/`.
@@ -380,6 +440,27 @@ These are signed objects carried between phones and later to the backend. They a
 
 A voucher frame also carries the customer's device certificate and vault certificate.
 
+
+
+
+### 5.3 Offline refusal codes
+
+The app shows translated text for each code. These never come from the backend.
+
+| Code | Meaning |
+| :--- | :--- |
+| `INVALID_CERTIFICATE` | A certificate is fake, expired or for the wrong device |
+| `INVALID_SIGNATURE` | The signed data was changed or forged |
+| `REQUEST_EXPIRED` | The merchant's payment request expired |
+| `REQUEST_MISMATCH` | The voucher doesn't match this payment request |
+| `VAULT_EXPIRED` | The vault can no longer be spent |
+| `INSUFFICIENT_VAULT_CAPACITY` | The vault doesn't have enough left |
+| `WRONG_PAYEE` | The voucher is for another merchant |
+| `DUPLICATE_VOUCHER` | This merchant already accepted this voucher |
+
+
+
+
 ## 6. Error codes and required app behaviour
 
 | Code | HTTP | App behaviour |
@@ -400,7 +481,8 @@ A voucher frame also carries the customer's device certificate and vault certifi
 | `RATE_LIMITED` | 429 | Retry with backoff. |
 | `PAYPAL_UNAVAILABLE` | 503 | Offer retry and keep local data. |
 | `AI_UNAVAILABLE` | 503 | Open the offline assistant path. |
-
+| `ROUTE_NOT_FOUND` | 404 | This is a bug. Log it and show a general error. |
+| `INTERNAL_ERROR` | 500 | Offer retry and keep local data. |
 ## 7. Change control
 
 1. Open a pull request against this document first.

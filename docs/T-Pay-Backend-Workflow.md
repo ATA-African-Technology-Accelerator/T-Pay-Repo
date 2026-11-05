@@ -107,6 +107,9 @@ The backend is complete for an activity only when the listed endpoint passes its
 | `POST /assistant/interpret` | ACT-15 | `AssistantController.interpret` | `InterpretRequest` | FR-32, FR-46 | BE-11 |
 | `POST /webhooks/paypal` | PayPal | `PayPalWebhookController.handle` | `ApplyPayPalEvent` | FR-21 | BE-08 |
 | `GET /health` | Operators | `HealthController.check` | `CheckHealth` | NFR-10 | BE-01 |
+| `GET /profile` | ACT-16 | `ProfileController.get` | None | FR-02 | BE-05 |
+| `PATCH /profile` | ACT-16 | `ProfileController.update` | None | FR-02 | BE-05 |
+| `GET /transactions` | ACT-11 | `TransactionController.list` | `ListTransactions` | NFR-03 | BE-05 |
 
 Offline activities ACT-01, ACT-06 to ACT-09, ACT-16 and ACT-17 have no endpoint. We support them through `shared/` rules and tests.
 
