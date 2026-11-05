@@ -1,17 +1,19 @@
 import {ValueObject} from './ValueObject';
+import {Result} from './Result';
 
 
 
-export type Currency = 'USD' | 'EUR' | 'GBP' | 'JPY' | 'CAD' | 'AUD' | 'CHF' | 'CNY' | 'SEK' | 'NZD';
 
+
+export type Currency = 'NGN' | 'USD' | 'EUR' | 'GBP' | 'JPY' | 'CAD' | 'AUD' | 'CHF' | 'CNY' | 'SEK' | 'NZD';
 
 const MINOR_UNITS_PER_MAJOR = 100;
+
 
 interface MoneyProps {
   minor: number;
   currency: Currency;
 }
-
 
 
 
