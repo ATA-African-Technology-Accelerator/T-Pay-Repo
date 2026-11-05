@@ -7,7 +7,6 @@
     "start": "tsx src/server.ts",
     "dev": "tsx watch src/server.ts",
     "lint": "tsc --noEmit -p . && tsc --noEmit -p ../shared",
-    "test:domain": "tsx ../shared/src/__tests__/domain-verification.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
