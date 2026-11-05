@@ -18,9 +18,11 @@
     "tsx": "^4.21.0"
   },
   "devDependencies": {
+    "@noble/curves": "^2.4.0",
     "@types/express": "^4.17.21",
     "@types/node": "^22.14.0",
     "@types/supertest": "^7.2.1",
+    "fast-check": "^4.10.2",
     "supertest": "^7.3.1",
     "typescript": "^7.0.2",
     "vitest": "^5.1.0"
