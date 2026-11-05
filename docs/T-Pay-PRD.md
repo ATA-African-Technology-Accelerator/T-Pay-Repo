@@ -391,7 +391,7 @@ An exact duplicate is not a state change. The backend returns the stored outcome
 
 ### 3.7 Minimum interface surface
 
-Only what the Android app needs. Every mutating client endpoint is authenticated by device token and idempotent.
+Only what the Android app needs. Every mutating client endpoint is authenticated by device token and idempotent. The API contract in `docs/T-Pay-API-Contract.md` is the binding detail for payloads, errors and the activity that calls each endpoint.
 
 | Method and path | Purpose | Idempotency |
 | :--- | :--- | :--- |
