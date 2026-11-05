@@ -3,54 +3,64 @@
 import React, { createContext, useContext, useMemo, useState } from 'react';
 
 export type Status = 'paid' | 'locked' | 'pending' | 'sent' | 'refused' | 'blocked';
-export type Entry = { id: string; who: string; amount: number; status: Status; when: string };
-export type Role = 'buy' | 'sell';
+export type Dir = 'in' | 'out' | 'lock';
+export type Entry = { id: string; who: string; amount: number; dir: Dir; status: Status; when: string; ref: string; capture?: string };
+export type Wallet = 'active' | 'offline';
 
 const SELLER = 'Mama Nkechi Provisions';
+const now = () => 'Just now';
+export const SPENT = 6000;
+export const DEMO_RATE = 1500;
 
 type Store = {
-  role: Role; setRole(r: Role): void;
-  locked: number; pending: number; lock(n: number): void; pay(n: number): void;
-  history: Entry[];
-  merchantPending: number; merchantPaid: number; sales: Entry[]; receive(n: number): void;
-  seller: string; buyer: string;
+  name: string; setName(n: string): void; payout: string; setPayout(e: string): void; seller: string;
+  wallet: Wallet; setWallet(w: Wallet): void; hidden: boolean; toggleHidden(): void;
+  active: number; locked: number; left: number; pending: number; incoming: number; paidIn: number; closing: boolean;
+  history: Entry[]; blocking?: Entry;
+  lock(n: number): void; pay(n: number): void; receive(n: number): void; melt(): void;
 };
 
 const Ctx = createContext<Store | null>(null);
-const now = () => 'Just now';
-export const SPENT = 6000;
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
-  const [role, setRole] = useState<Role>('buy');
+  const [name, setName] = useState('Ada');
+  const [payout, setPayout] = useState('ada-sandbox@example.com');
+  const [wallet, setWallet] = useState<Wallet>('offline');
+  const [hidden, setHidden] = useState(false);
+  const [base, setBase] = useState(30000);
   const [locked, setLocked] = useState(25000);
-  const [pending, setPending] = useState(1800);
+  const [closing, setClosing] = useState(false);
   const [history, setHistory] = useState<Entry[]>([
-    { id: 'd', who: 'Iya Bose Foods', amount: 1800, status: 'pending', when: '8-Nov-2026  12:56 PM' },
-    { id: 'a', who: SELLER, amount: 1500, status: 'paid', when: '8-Nov-2026  11:02 AM' },
-    { id: 'l', who: 'Money locked', amount: 25000, status: 'locked', when: '7-Nov-2026  9:30 AM' },
-    { id: 'b', who: 'Baba Tunde Fabrics', amount: 500, status: 'refused', when: '6-Nov-2026  4:10 PM' },
+    { id: 'd', who: 'Iya Bose Foods', amount: 1800, dir: 'out', status: 'pending', when: '8-Nov-2026  12:56 PM', ref: 'vch_458' },
+    { id: 'e', who: 'Customer Bisi', amount: 1200, dir: 'in', status: 'pending', when: '8-Nov-2026  12:40 PM', ref: 'vch_461' },
+    { id: 'a', who: SELLER, amount: 1500, dir: 'out', status: 'paid', when: '8-Nov-2026  11:02 AM', ref: 'vch_457', capture: 'SANDBOX-CAPTURE' },
+    { id: 'c', who: 'Customer Musa', amount: 12000, dir: 'in', status: 'paid', when: '8-Nov-2026  10:20 AM', ref: 'vch_460', capture: 'SANDBOX-CAPTURE' },
+    { id: 'l', who: 'Money locked', amount: 25000, dir: 'lock', status: 'locked', when: '7-Nov-2026  9:30 AM', ref: 'vlt_123' },
+    { id: 'f', who: 'Customer Ngozi', amount: 6500, dir: 'in', status: 'paid', when: '7-Nov-2026  3:45 PM', ref: 'vch_459', capture: 'SANDBOX-CAPTURE' },
+    { id: 'b', who: 'Baba Tunde Fabrics', amount: 500, dir: 'out', status: 'refused', when: '6-Nov-2026  4:10 PM', ref: 'vch_456' },
   ]);
-  const [merchantPending, setMerchantPending] = useState(1200);
-  const [sales, setSales] = useState<Entry[]>([
-    { id: 'e', who: 'Customer Ada', amount: 1200, status: 'pending', when: '8-Nov-2026  12:56 PM' },
-    { id: 'c', who: 'Customer Musa', amount: 12000, status: 'paid', when: '8-Nov-2026  10:20 AM' },
-    { id: 'f', who: 'Customer Ngozi', amount: 6500, status: 'paid', when: '7-Nov-2026  3:45 PM' },
-  ]);
-  const value = useMemo<Store>(() => ({
-    role, setRole, locked, pending, history, merchantPending, merchantPaid: 25500, sales, seller: SELLER, buyer: 'Ada',
-    lock: n => {
-      setLocked(l => l + n);
-      setHistory(h => [{ id: String(Date.now()), who: 'Money locked', amount: n, status: 'locked', when: now() }, ...h]);
-    },
-    pay: n => {
-      setPending(p => p + n);
-      setHistory(h => [{ id: String(Date.now()), who: SELLER, amount: n, status: 'pending', when: now() }, ...h]);
-    },
-    receive: n => {
-      setMerchantPending(p => p + n);
-      setSales(s => [{ id: String(Date.now()), who: 'Customer', amount: n, status: 'pending', when: now() }, ...s]);
-    },
-  }), [role, locked, pending, history, merchantPending, sales]);
+  const add = (e: Omit<Entry, 'id' | 'when'>) => setHistory(h => [{ ...e, id: String(Date.now()), when: now() }, ...h]);
+
+  const value = useMemo<Store>(() => {
+    const sum = (f: (e: Entry) => boolean) => history.filter(f).reduce((a, e) => a + e.amount, 0);
+    const pending = sum(e => e.dir === 'out' && e.status === 'pending');
+    const incoming = sum(e => e.dir === 'in' && e.status === 'pending');
+    const paidIn = sum(e => e.dir === 'in' && e.status === 'paid');
+    return {
+      name, setName, payout, setPayout, seller: SELLER,
+      wallet, setWallet, hidden, toggleHidden: () => setHidden(x => !x),
+      active: base + paidIn, locked, left: Math.max(0, locked - pending), pending, incoming, paidIn, closing,
+      history, blocking: history.find(e => e.dir === 'out' && e.status === 'pending'),
+      lock: n => {
+        setLocked(l => l + n); setBase(b => b - n); setClosing(false);
+        add({ who: 'Money locked', amount: n, dir: 'lock', status: 'locked', ref: `vlt_${Date.now()}` });
+      },
+      pay: n => add({ who: SELLER, amount: n, dir: 'out', status: 'pending', ref: `vch_${Date.now()}` }),
+      receive: n => add({ who: 'Customer', amount: n, dir: 'in', status: 'pending', ref: `vch_${Date.now()}` }),
+      // Unspent money returns now. Money reserved for vouchers stays held until they settle.
+      melt: () => { setBase(b => b + Math.max(0, locked - pending)); setLocked(pending); setClosing(pending > 0); },
+    };
+  }, [name, payout, wallet, hidden, base, locked, closing, history]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

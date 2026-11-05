@@ -4,9 +4,9 @@
     "slug": "tpay-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
     "splash": {
-      "backgroundColor": "#B3EE4A"
+      "backgroundColor": "#050608"
     },
     "ios": {
       "supportsTablet": true,
@@ -14,7 +14,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#B3EE4A"
+        "backgroundColor": "#050608"
       },
       "package": "com.tpay.mobile"
     },

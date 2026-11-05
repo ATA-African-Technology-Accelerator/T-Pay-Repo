@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Pressable, StyleSheet, View } from 'react-native';
-import { ArrowUpRight, Check, Volume2 } from 'lucide-react-native';
-import { color, font, motion, radius, space, touch } from '../theme/tokens';
-import { Folder, Rise, T, native, speak, useCardW, useReduceMotion } from '../components/ui';
-import { BagIcon, HandCoinIcon } from '../components/icons';
+import { Animated, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Check, ShieldCheck, Volume2 } from 'lucide-react-native';
+import { color, font, glass, motion, radius, space, touch, type } from '../theme/tokens';
+import { Aurora } from '../components/aurora';
+import { Button, Panel, Rise, T, native, speak, useReduceMotion } from '../components/ui';
+import { BagIcon } from '../components/icons';
 import { CurvedHeader, Screen } from '../components/shell';
 import { useNav } from '../nav';
 import { useStore } from '../demo/store';
@@ -20,10 +21,11 @@ export function Splash() {
   }, []);
   return (
     <View style={o.splash}>
+      <Aurora />
       <Animated.View style={[o.mark, { opacity: a, transform: [{ scale: a.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1] }) }] }]}>
-        <View style={o.logo}><BagIcon size={44} c={color.lime} w={1.5} /></View>
+        <View style={o.logo}><BagIcon size={44} c={color.white} w={1.5} /></View>
         <T style={o.brand}>T-Pay</T>
-        <T v="heading">{t.tagline}</T>
+        <T v="heading" c={color.white}>{t.tagline}</T>
       </Animated.View>
     </View>
   );
@@ -41,14 +43,14 @@ export function Language() {
             <Rise key={name} delay={i * 60} style={o.langRow}>
               <Pressable
                 accessibilityRole="radio" accessibilityState={{ selected: on }} accessibilityLabel={name}
-                onPress={() => { setPicked(name); setTimeout(() => nav.go({ name: 'role' }), 180); }}
-                style={[o.lang, on && { backgroundColor: color.lime }]}
+                onPress={() => { setPicked(name); setTimeout(() => nav.go({ name: 'details' }), 180); }}
+                style={[o.lang, on && { backgroundColor: color.panelHigh }]}
               >
                 <T v="heading">{name}</T>
-                {on && <Check size={22} color={color.ink} strokeWidth={2.4} />}
+                {on && <Check size={22} color={color.blue} strokeWidth={2.4} />}
               </Pressable>
               <Pressable accessibilityRole="button" accessibilityLabel={`Hear ${name}`} onPress={() => speak(name)} style={o.ear}>
-                <Volume2 size={21} color={color.ink} strokeWidth={1.8} />
+                <Volume2 size={21} color={color.text} strokeWidth={1.8} />
               </Pressable>
             </Rise>
           );
@@ -58,43 +60,45 @@ export function Language() {
   );
 }
 
-export function Role() {
+/** One account for everyone: your name for customers, and where received money goes. */
+export function Details() {
   const nav = useNav();
-  const { setRole } = useStore();
-  const w = useCardW();
-  const pick = (r: 'buy' | 'sell') => { setRole(r); nav.reset({ name: 'home' }); };
-  const Tile = ({ icon, title, hint, fill, onPress }: { icon: React.ReactNode; title: string; hint: string; fill: string; onPress(): void }) => (
-    <Pressable
-      accessibilityRole="button" accessibilityLabel={title} accessibilityHint={hint} onPress={onPress}
-      style={({ pressed }) => ({ transform: [{ scale: pressed ? 0.96 : 1 }] })}
-    >
-      <Folder w={w} h={200} fill={fill} pill={<ArrowUpRight size={21} color={color.ink} strokeWidth={2} />}>
-        <View style={o.tile}>
-          <View style={o.coin}>{icon}</View>
-          <View>
-            <T v="hello">{title}</T>
-            <T v="small">{hint}</T>
-          </View>
-        </View>
-      </Folder>
-    </Pressable>
-  );
+  const { name, setName, payout, setPayout } = useStore();
   return (
-    <Screen head={<CurvedHeader back bell={false} title={t.howUse} />}>
-      <Rise><Tile fill={color.lime} icon={<HandCoinIcon size={30} c={color.ink} w={1.5} />} title={t.iSell} hint={t.iSellHint} onPress={() => pick('sell')} /></Rise>
-      <Rise delay={100}><Tile fill={color.lilac} icon={<BagIcon size={30} c={color.ink} w={1.5} />} title={t.iBuy} hint={t.iBuyHint} onPress={() => pick('buy')} /></Rise>
+    <Screen
+      head={<CurvedHeader back bell={false} title={t.yourDetails} />}
+      footer={<Button label={t.finish} disabled={!name.trim() || !payout.trim()} onPress={() => nav.reset({ name: 'lock' })} />}
+    >
+      <View style={o.field}>
+        <T v="label">{t.yourName}</T>
+        <TextInput accessibilityLabel={t.yourName} value={name} onChangeText={setName} style={o.input} />
+        <T v="small" c={color.muted}>{t.nameHint}</T>
+      </View>
+      <View style={o.field}>
+        <T v="label">{t.payoutEmail}</T>
+        <TextInput accessibilityLabel={t.payoutEmail} value={payout} onChangeText={setPayout} autoCapitalize="none" keyboardType="email-address" style={o.input} />
+        <T v="small" c={color.muted}>{t.payoutHint}</T>
+      </View>
+      <Panel style={o.note}>
+        <ShieldCheck size={21} color={color.green} strokeWidth={1.7} />
+        <View style={{ flex: 1 }}>
+          <T v="label">{t.tierB}</T>
+          <T v="small" c={color.muted}>{t.needsInternetOnce}</T>
+        </View>
+      </Panel>
     </Screen>
   );
 }
 
 const o = StyleSheet.create({
-  splash: { flex: 1, backgroundColor: color.lime, alignItems: 'center', justifyContent: 'center' },
+  splash: { flex: 1, backgroundColor: color.page, alignItems: 'center', justifyContent: 'center' },
   mark: { alignItems: 'center', gap: space.xs },
-  logo: { width: 88, height: 88, borderRadius: 44, backgroundColor: color.ink, alignItems: 'center', justifyContent: 'center', marginBottom: space.md },
-  brand: { fontFamily: font.headStrong, fontSize: 40, lineHeight: 48, color: color.ink },
+  logo: { width: 88, height: 88, borderRadius: 44, borderWidth: 1, borderColor: glass.line, backgroundColor: glass.fill, alignItems: 'center', justifyContent: 'center', marginBottom: space.md },
+  brand: { fontFamily: font.headStrong, fontSize: 40, lineHeight: 48, color: color.white },
   langRow: { flexDirection: 'row', gap: space.sm },
-  lang: { flex: 1, minHeight: touch.button + 6, paddingHorizontal: space.xl + 2, borderRadius: radius.pill, backgroundColor: color.white, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  ear: { width: touch.button + 6, height: touch.button + 6, borderRadius: 31, backgroundColor: color.white, alignItems: 'center', justifyContent: 'center' },
-  tile: { flex: 1, padding: space.xxl - 2, justifyContent: 'space-between' },
-  coin: { width: 54, height: 54, borderRadius: 27, backgroundColor: color.white, alignItems: 'center', justifyContent: 'center' },
+  lang: { flex: 1, minHeight: touch.button + 6, paddingHorizontal: space.xl + 2, borderRadius: radius.md, backgroundColor: color.panel, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  ear: { width: touch.button + 6, height: touch.button + 6, borderRadius: radius.md, backgroundColor: color.panel, alignItems: 'center', justifyContent: 'center' },
+  field: { gap: space.xs },
+  input: { ...type.heading, color: color.text, height: touch.button + 4, paddingHorizontal: space.lg, backgroundColor: color.panel, borderRadius: radius.md },
+  note: { flexDirection: 'row', alignItems: 'center' },
 });

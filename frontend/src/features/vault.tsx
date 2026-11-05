@@ -1,33 +1,38 @@
 import React from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { ArrowDown, ArrowUp } from 'lucide-react-native';
 import { color, space } from '../theme/tokens';
-import { Button, Panel, Rise, RollingMoney, T, money } from '../components/ui';
+import { Button, HearIt, Panel, Rise, RollingMoney, T, money } from '../components/ui';
 import { CurvedHeader, Screen, Section } from '../components/shell';
 import { ActivityRows, Duo, WeekBars } from '../components/rows';
+import { StatusMark } from '../components/money';
 import { useNav } from '../nav';
-import { SPENT, useStore } from '../demo/store';
+import { DEMO_RATE, SPENT, useStore } from '../demo/store';
 import { t } from '../i18n/en';
 
 const up = <ArrowUp size={20} color={color.ink} strokeWidth={2} />;
 const down = <ArrowDown size={20} color={color.ink} strokeWidth={2} />;
+const usd = (n: number) => `$${(n / DEMO_RATE).toFixed(2)}`;
 
-function Total({ label, amount, hint }: { label: string; amount: number; hint: string }) {
+function Line({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
   return (
-    <Rise style={v.total}>
+    <View style={v.line} accessible accessibilityLabel={`${label}, ${value}`}>
       <T v="body" c={color.muted}>{label}</T>
-      <RollingMoney value={amount} v="moneyL" />
-      <T v="small" c={color.muted}>{hint}</T>
-    </Rise>
+      <T v={strong ? 'heading' : 'label'} style={v.value}>{value}</T>
+    </View>
   );
 }
 
-function CustomerVault() {
+export function VaultScreen() {
   const nav = useNav();
-  const { locked, pending, history } = useStore();
+  const { left, pending, locked, history } = useStore();
   return (
     <Screen tabsFor="vault" head={<CurvedHeader home title={t.vaultTitle} />}>
-      <Total label={t.leftToSpend} amount={locked - pending} hint={t.spendBy} />
+      <Rise style={v.total}>
+        <T v="body" c={color.muted}>{t.leftToSpend}</T>
+        <RollingMoney value={left} v="moneyL" />
+        <T v="small" c={color.muted}>{t.spendBy}</T>
+      </Rise>
       <Rise delay={100}>
         <WeekBars title={t.spendDays} days={[
           { day: 'Thu', amount: 1000 }, { day: 'Fri', amount: 1500 }, { day: 'Sat', amount: 2000 },
@@ -35,46 +40,106 @@ function CustomerVault() {
         ]} />
       </Rise>
       <Duo items={[
-        { label: t.spent, value: money(SPENT), fill: color.lime, icon: up },
-        { label: t.status.pending, value: money(pending), fill: color.peach, icon: down },
+        { label: t.spent, value: money(SPENT), fill: color.green, icon: up },
+        { label: t.status.pending, value: money(pending), fill: color.amber, icon: down },
       ]} />
       <Button label={t.addMoney} onPress={() => nav.go({ name: 'amount', mode: 'lock' })} />
+      {locked > 0 && <Button kind="soft" label={t.closeVault} onPress={() => nav.go({ name: 'melt' })} />}
       <Panel>
-        <Section title={t.recent} action={t.seeAll} onAction={() => nav.reset({ name: 'activity' })} />
-        <ActivityRows rows={history.slice(0, 2)} />
+        <Section title={t.recentTx} action={t.seeAll} onAction={() => nav.reset({ name: 'activity' })} />
+        <ActivityRows rows={history.filter(e => e.dir !== 'in').slice(0, 2)} />
       </Panel>
     </Screen>
   );
 }
 
-function Sales() {
+export function VaultReview({ amount, hours }: { amount: number; hours: number }) {
   const nav = useNav();
-  const { merchantPending, merchantPaid, sales } = useStore();
+  const { lock } = useStore();
+  const go = () => { lock(amount); nav.reset({ name: 'vaultActive', amount, hours }); };
   return (
-    <Screen tabsFor="vault" head={<CurvedHeader home title={t.sales} />}>
-      <Total label={t.salesToday} amount={merchantPaid + merchantPending} hint={merchantPending ? t.statusWaiting : t.statusReady} />
-      <Rise delay={100}>
-        <WeekBars title={t.salesWeek} days={[
-          { day: 'Wed', amount: 3000 }, { day: 'Thu', amount: 4000 }, { day: 'Fri', amount: 6500 }, { day: 'Sat', amount: 12000 },
-          { day: 'Sun', amount: 1200 + (merchantPending > 1200 ? merchantPending - 1200 : 0), note: t.today },
-        ]} />
+    <Screen head={<CurvedHeader back bell={false} title={t.checkVault} />} footer={<Button label={t.toPayPal} onPress={go} />}>
+      <Rise>
+        <Panel style={v.big}>
+          <T v="body" c={color.muted}>{t.amountLock}</T>
+          <T v="moneyL">{money(amount)}</T>
+          <T v="label">{`${t.paypalHolds} ${usd(amount)}`}</T>
+        </Panel>
       </Rise>
-      <Duo items={[
-        { label: t.sold, value: money(merchantPaid), fill: color.lime, icon: down },
-        { label: t.status.pending, value: money(merchantPending), fill: color.peach, icon: down },
-      ]} />
-      <Button label={t.collect} onPress={() => nav.go({ name: 'amount', mode: 'collect' })} />
-      <Panel>
-        <Section title={t.recent} />
-        <ActivityRows rows={sales} />
-      </Panel>
+      <Rise delay={100}>
+        <Panel>
+          <Line label={t.demoRate} value={`₦${DEMO_RATE.toLocaleString('en-US')}.00 ${t.ngnPerUsd}`} />
+          <Line label={t.spendWithin} value={`${hours} ${t.hours}`} />
+          <Line label={t.unspentMoney} value={t.unspentReturns} />
+        </Panel>
+      </Rise>
+      <T v="small" c={color.muted} style={v.center}>{t.sandboxNext}</T>
     </Screen>
   );
 }
 
-export function VaultScreen() {
-  const { role } = useStore();
-  return role === 'sell' ? <Sales /> : <CustomerVault />;
+export function VaultActive({ amount, hours }: { amount: number; hours: number }) {
+  const nav = useNav();
+  return (
+    <Screen head={<CurvedHeader bell={false} title={t.vaultLocked} />} footer={<Button label={t.done} onPress={() => nav.reset({ name: 'home' })} />}>
+      <Rise>
+        <Panel style={v.big}>
+          <StatusMark status="paid" size={48} big />
+          <T v="moneyL">{money(amount)}</T>
+          <T v="label">{`${usd(amount)} ${t.heldByPayPal}`}</T>
+          <T v="small" c={color.muted}>{`${t.spendWithin} ${hours} ${t.hours}`}</T>
+        </Panel>
+      </Rise>
+      <T v="body" c={color.muted} style={v.center}>{t.canGoOffline}</T>
+      <HearIt say={`${t.vaultLocked}. ${amount} naira. ${t.canGoOffline}`} />
+    </Screen>
+  );
 }
 
-const v = StyleSheet.create({ total: { alignItems: 'center', paddingVertical: space.xs, gap: 2 } });
+/** Close the vault. Unspent money returns now; money promised to sellers stays held until it settles. */
+export function Melt() {
+  const nav = useNav();
+  const { left, pending, melt, blocking } = useStore();
+  const [done, setDone] = React.useState<null | { back: number; held: number; ref?: string }>(null);
+  const close = () => { setDone({ back: left, held: pending, ref: blocking?.ref }); melt(); };
+  if (done) {
+    return (
+      <Screen head={<CurvedHeader bell={false} title={t.vaultClosed} />} footer={<Button label={t.done} onPress={() => nav.reset({ name: 'home' })} />}>
+        <Rise>
+          <Panel style={v.big}>
+            <StatusMark status={done.held ? 'pending' : 'paid'} size={44} />
+            <T v="title">{t.backToActive}</T>
+            <T v="moneyL">{money(done.back)}</T>
+          </Panel>
+        </Rise>
+        {done.held > 0 && (
+          <Rise delay={100}>
+            <Panel>
+              <Line label={t.stillHeld} value={money(done.held)} />
+              <Line label={t.releaseBy} value={t.settleByDate} />
+              {done.ref && <Line label={t.waitingFor} value={done.ref} />}
+            </Panel>
+          </Rise>
+        )}
+      </Screen>
+    );
+  }
+  return (
+    <Screen head={<CurvedHeader back bell={false} title={t.closeVault} />} footer={<Button label={t.closeVault} onPress={close} />}>
+      <T v="hello">{t.stopSpending}</T>
+      <Panel>
+        <Line label={t.unspent} value={money(left)} strong />
+        <Line label={t.status.pending} value={money(pending)} />
+      </Panel>
+      <T v="body" c={color.muted}>{t.closeNote}</T>
+    </Screen>
+  );
+}
+
+const v = StyleSheet.create({
+  total: { alignItems: 'center', paddingVertical: space.xs, gap: 2 },
+  big: { alignItems: 'center', gap: space.xs, paddingVertical: space.xl },
+  center: { textAlign: 'center' },
+  line: { flexDirection: 'row', justifyContent: 'space-between', gap: space.lg },
+  value: { flexShrink: 1, textAlign: 'right' },
+});

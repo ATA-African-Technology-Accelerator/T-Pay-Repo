@@ -11,14 +11,14 @@ const Naira = ({ x, y, s = 1, c, w }: { x: number; y: number; s?: number; c: str
   </G>
 );
 
-export const HomeIcon = ({ size = 26, c = color.ink, w = 1.6 }: P) => (
+export const HomeIcon = ({ size = 26, c = color.text, w = 1.6 }: P) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path d="M3.6 10.4 12 3.6l8.4 6.8V17a4 4 0 0 1-4 4H7.6a4 4 0 0 1-4-4z" stroke={c} strokeWidth={w} strokeLinejoin="round" />
     <Path d="M9.2 16.2c1.7 1.1 3.9 1.1 5.6 0" stroke={c} strokeWidth={w} strokeLinecap="round" />
   </Svg>
 );
 
-export const BagIcon = ({ size = 26, c = color.ink, w = 1.6 }: P) => (
+export const BagIcon = ({ size = 26, c = color.text, w = 1.6 }: P) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path d="M8.2 3.4c1.2.8 2.5.8 3.8 0 1.3.8 2.6.8 3.8 0l-1.5 4H9.7z" stroke={c} strokeWidth={w} strokeLinejoin="round" />
     <Path d="M9.7 7.4C6.4 9.2 3.6 12.4 3.6 16c0 3.3 2.9 5 8.4 5s8.4-1.7 8.4-5c0-3.6-2.8-6.8-6.1-8.6" stroke={c} strokeWidth={w} strokeLinecap="round" />
@@ -26,7 +26,7 @@ export const BagIcon = ({ size = 26, c = color.ink, w = 1.6 }: P) => (
   </Svg>
 );
 
-export const CoinPlusIcon = ({ size = 26, c = color.ink, w = 1.6 }: P) => (
+export const CoinPlusIcon = ({ size = 26, c = color.text, w = 1.6 }: P) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path d="M16.6 5.3A8.4 8.4 0 1 0 19.6 11" stroke={c} strokeWidth={w} strokeLinecap="round" />
     <Naira x={11.2} y={12.6} s={0.82} c={c} w={w * 0.9} />
@@ -34,7 +34,7 @@ export const CoinPlusIcon = ({ size = 26, c = color.ink, w = 1.6 }: P) => (
   </Svg>
 );
 
-export const HandCoinIcon = ({ size = 26, c = color.ink, w = 1.6 }: P) => (
+export const HandCoinIcon = ({ size = 26, c = color.text, w = 1.6 }: P) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Circle cx={14.6} cy={7.4} r={5.2} stroke={c} strokeWidth={w} />
     <Naira x={14.6} y={7.4} s={0.58} c={c} w={w * 0.85} />
@@ -43,14 +43,14 @@ export const HandCoinIcon = ({ size = 26, c = color.ink, w = 1.6 }: P) => (
   </Svg>
 );
 
-export const CheckDisc = ({ size = 26, c = color.ink }: P) => (
+export const CheckDisc = ({ size = 26, c = color.text }: P) => (
   <Svg width={size} height={size} viewBox="0 0 24 24">
     <Circle cx={12} cy={12} r={11} fill={c} />
     <Path d="m7 12.4 3.4 3.4L17 8.8" fill="none" stroke={color.white} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 );
 
-export const ClockDisc = ({ size = 26, c = color.ink }: P) => (
+export const ClockDisc = ({ size = 26, c = color.text }: P) => (
   <Svg width={size} height={size} viewBox="0 0 24 24">
     <Circle cx={12} cy={12.6} r={10.4} fill={c} />
     <Path d="M12 7.2v5.6l3.6 2" fill="none" stroke={color.white} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
@@ -58,7 +58,7 @@ export const ClockDisc = ({ size = 26, c = color.ink }: P) => (
   </Svg>
 );
 
-export const CalendarDisc = ({ size = 26, c = color.ink }: P) => (
+export const CalendarDisc = ({ size = 26, c = color.text }: P) => (
   <Svg width={size} height={size} viewBox="0 0 24 24">
     <Rect x={2} y={4} width={20} height={18} rx={5.4} fill={c} />
     <Path d="M7.4 2v4M16.6 2v4" stroke={c} strokeWidth={2.4} strokeLinecap="round" />
@@ -67,7 +67,7 @@ export const CalendarDisc = ({ size = 26, c = color.ink }: P) => (
   </Svg>
 );
 
-export const WalletDisc = ({ size = 26, c = color.ink }: P) => (
+export const WalletDisc = ({ size = 26, c = color.text }: P) => (
   <Svg width={size} height={size} viewBox="0 0 24 24">
     <Path d="M2 8a4.6 4.6 0 0 1 4.6-4.6H16A2.6 2.6 0 0 1 18.6 6H6.6v.1H17.4A4.6 4.6 0 0 1 22 10.7v6.7A4.6 4.6 0 0 1 17.4 22H6.6A4.6 4.6 0 0 1 2 17.4z" fill={c} />
     <Rect x={14} y={11.2} width={8} height={5.6} rx={2.8} fill={color.white} />
@@ -75,21 +75,21 @@ export const WalletDisc = ({ size = 26, c = color.ink }: P) => (
   </Svg>
 );
 
-export const NairaDisc = ({ size = 26, c = color.ink }: P) => (
+export const NairaDisc = ({ size = 26, c = color.text }: P) => (
   <Svg width={size} height={size} viewBox="0 0 24 24">
     <Circle cx={12} cy={12} r={11} fill={c} />
     <Naira x={12} y={12} s={1.2} c={color.white} w={1.8} />
   </Svg>
 );
 
-export const CrossDisc = ({ size = 26, c = color.ink }: P) => (
+export const CrossDisc = ({ size = 26, c = color.text }: P) => (
   <Svg width={size} height={size} viewBox="0 0 24 24">
     <Circle cx={12} cy={12} r={11} fill={c} />
     <Path d="m8.4 8.4 7.2 7.2M15.6 8.4l-7.2 7.2" stroke={color.white} strokeWidth={2.2} strokeLinecap="round" />
   </Svg>
 );
 
-export const AlertDisc = ({ size = 26, c = color.ink }: P) => (
+export const AlertDisc = ({ size = 26, c = color.text }: P) => (
   <Svg width={size} height={size} viewBox="0 0 24 24">
     <Path d="M9.8 3.3a2.5 2.5 0 0 1 4.4 0l7.5 13.8a2.5 2.5 0 0 1-2.2 3.7H4.5a2.5 2.5 0 0 1-2.2-3.7z" fill={c} />
     <Path d="M12 8.6v5" stroke={color.white} strokeWidth={2.3} strokeLinecap="round" />
@@ -97,7 +97,7 @@ export const AlertDisc = ({ size = 26, c = color.ink }: P) => (
   </Svg>
 );
 
-export const PlusDisc = ({ size = 26, c = color.ink }: P) => (
+export const PlusDisc = ({ size = 26, c = color.text }: P) => (
   <Svg width={size} height={size} viewBox="0 0 24 24">
     <Circle cx={12} cy={12} r={11} fill={c} />
     <Path d="M12 7.4v9.2M7.4 12h9.2" stroke={color.white} strokeWidth={2.2} strokeLinecap="round" />

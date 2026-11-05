@@ -6,38 +6,50 @@ import { Inter_400Regular } from '@expo-google-fonts/inter/400Regular';
 import { Inter_500Medium } from '@expo-google-fonts/inter/500Medium';
 import { Inter_600SemiBold } from '@expo-google-fonts/inter/600SemiBold';
 import { Inter_700Bold } from '@expo-google-fonts/inter/700Bold';
-import { Lexend_500Medium } from '@expo-google-fonts/lexend/500Medium';
-import { Lexend_600SemiBold } from '@expo-google-fonts/lexend/600SemiBold';
 import { Signal, Wifi, BatteryFull } from 'lucide-react-native';
 import { color, font, motion, shadow } from './theme/tokens';
 import { T, native, useReduceMotion } from './components/ui';
 import { Nav, NavCtx, Route } from './nav';
 import { StoreProvider } from './demo/store';
-import { Language, Role, Splash } from './features/onboarding';
+import { Details, Language, Splash } from './features/onboarding';
 import { HomeScreen } from './features/home';
-import { Amount, Delivered, Refused, Review, Scan, Voucher } from './features/pay';
+import { Amount, Delivered, Duplicate, Refused, Review, Scan, Tampered, Voucher } from './features/pay';
 import { Credit, Request } from './features/collect';
-import { Activity, SettingsScreen, Speak } from './features/lists';
-import { VaultScreen } from './features/vault';
+import { Activity, Assist, Ledger, Proposal, SettingsScreen, Speak } from './features/lists';
+import { Melt, VaultActive, VaultReview, VaultScreen } from './features/vault';
+import { Lock } from './features/lock';
+import { Help } from './features/help';
+import { Receipt } from './features/receipt';
 
 function render(r: Route) {
   switch (r.name) {
     case 'splash': return <Splash />;
     case 'language': return <Language />;
-    case 'role': return <Role />;
+    case 'details': return <Details />;
+    case 'lock': return <Lock />;
+    case 'help': return <Help />;
+    case 'receipt': return <Receipt id={r.id} />;
     case 'home': return <HomeScreen />;
     case 'activity': return <Activity />;
+    case 'ledger': return <Ledger />;
     case 'vault': return <VaultScreen />;
+    case 'vaultReview': return <VaultReview amount={r.amount} hours={r.hours} />;
+    case 'vaultActive': return <VaultActive amount={r.amount} hours={r.hours} />;
+    case 'melt': return <Melt />;
     case 'speak': return <Speak />;
+    case 'proposal': return <Proposal amount={r.amount} offline={r.offline} />;
+    case 'assist': return <Assist />;
     case 'settings': return <SettingsScreen />;
     case 'amount': return <Amount mode={r.mode} />;
-    case 'scan': return <Scan />;
+    case 'scan': return <Scan kind={r.kind ?? 'request'} amount={r.amount ?? 0} />;
     case 'review': return <Review amount={r.amount} />;
     case 'refused': return <Refused amount={r.amount} />;
+    case 'tampered': return <Tampered amount={r.amount} />;
+    case 'duplicate': return <Duplicate amount={r.amount} />;
     case 'voucher': return <Voucher amount={r.amount} />;
     case 'delivered': return <Delivered amount={r.amount} />;
     case 'request': return <Request amount={r.amount} />;
-    case 'credit': return <Credit amount={r.amount} />;
+    case 'credit': return <Credit amount={r.amount} again={r.again} />;
   }
 }
 
@@ -52,7 +64,7 @@ function Page({ route, dir }: { route: Route; dir: number }) {
 }
 
 export default function App() {
-  const [loaded] = useFonts({ Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold, Lexend_500Medium, Lexend_600SemiBold });
+  const [loaded] = useFonts({ Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold });
   const [stack, setStack] = useState<{ r: Route; id: number; dir: number }[]>([{ r: { name: 'splash' }, id: 0, dir: 0 }]);
   const ids = useRef(1);
   const nav = useMemo<Nav>(() => ({
@@ -74,7 +86,7 @@ export default function App() {
       <NavCtx.Provider value={nav}>
         <View style={st.stage}>
           <View style={st.phone}>
-            <StatusBar style="dark" />
+            <StatusBar style="light" />
             <Page key={top.id} route={top.r} dir={top.dir} />
             {web && <DeviceChrome />}
           </View>
@@ -91,12 +103,12 @@ function DeviceChrome() {
   return (
     <>
       <View pointerEvents="none" style={st.status}>
-        <T v="label" style={{ fontFamily: font.semibold, width: 60 }}>11:41</T>
+        <T v="label" c={color.white} style={{ fontFamily: font.semibold, width: 60 }}>11:41</T>
         <View style={st.island} />
         <View style={st.right}>
-          <Signal size={17} color={color.ink} strokeWidth={2.4} />
-          <Wifi size={17} color={color.ink} strokeWidth={2.4} />
-          <BatteryFull size={21} color={color.ink} strokeWidth={1.8} />
+          <Signal size={17} color={color.white} strokeWidth={2.4} />
+          <Wifi size={17} color={color.white} strokeWidth={2.4} />
+          <BatteryFull size={21} color={color.white} strokeWidth={1.8} />
         </View>
       </View>
       <View pointerEvents="none" style={st.bar} />
@@ -110,5 +122,5 @@ const st = StyleSheet.create({
   status: { position: 'absolute', top: 12, left: 26, right: 22, height: 30, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   island: { width: 104, height: 29, borderRadius: 15, backgroundColor: color.black },
   right: { width: 66, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 3 },
-  bar: { position: 'absolute', bottom: 8, alignSelf: 'center', width: 132, height: 5, borderRadius: 3, backgroundColor: color.black },
+  bar: { position: 'absolute', bottom: 8, alignSelf: 'center', width: 132, height: 5, borderRadius: 3, backgroundColor: color.white },
 });

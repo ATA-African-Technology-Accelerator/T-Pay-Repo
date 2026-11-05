@@ -1,31 +1,29 @@
 # T-Pay style lock
 
-Status: merge of the owner's two reference mock-ups, 2026-11-05. Animation and component libraries still pending.
+Status: set on 2026-11-05 from the owner's supplied wallet reference (/home/gamp/Desktop/d463111bc2c67cb319a04db0ebc95a90.webp). Goal: professional and trustworthy.
+Design read: app shell for market traders and customers, mode Operate, calm dark wallet lane, dials variance 3, motion 3, density 5, art direction 5.
 Tokens: frontend/src/theme/tokens.ts is the only place colours, type, spacing and motion values live.
+Use the reference for layout and colour direction only. Its crypto content and brand marks stay out of the product.
 
 ## Direction
-From the lime reference: folder-shaped cards with a raised tab and notch pill, cards stacked behind one another, navy chart panel, lime and navy.
-From the lilac reference: white panels with a small top dent, round icon actions, rounded bar chart with a bubble, segmented control, floating dark menu, grey-white page.
-
-## Rules from the owner
-- Colours come only from the references. No outside status colours.
-- No gradients in the app.
-- Intuitive for someone with no technology experience, so every menu item keeps its word.
-- Subtle animation. Libraries are chosen by the owner.
+Near-black page, quiet panels without borders, one blue glow behind the hero, glass round actions under the balance, a single notice card, one account that can pay and collect, two swipeable wallets (Offline, Active) in the hero with their names always visible, one Recent transactions panel with See all, a PIN lock screen, a receipt for every transaction, Help one tap from home, a raised frosted-glass mic in the middle of the menu, large calm keypad for amounts.
 
 ## Colour contract
-Page #F2F4EE. Ink #0D1B36. Lime #B3EE4A. Lilac #8A79F1. Peach #FECC82. White panels.
-Text on lime, lilac and peach is always ink. Text on ink is white or #C9D0DD.
-Status: Paid lime, Pending peach, Locked pale lilac, Refused ink. Each also has its word.
+Page #050608. Panel #111317. Raised #1A1E24. Line #262B33. Text #F3F5F9. Muted #9AA6B8.
+Glow stops #0C2137, #1D436D, #3265A4, #6F84BA, used only by Aurora.
+Primary action: light #F3F5F9 fill with ink #07090D text.
+Status, always with its word: Paid #6FD98C, Processing #F0B64A, Locked #8FB4F0, Refused #F58B7C.
+White on the brightest glow stop is 3.69:1, so small text stays clear of the top right corner.
+Scan codes stay dark on a white plate.
 
 ## Type
-Lexend for titles and money. Inter for body. Inter covers the Hausa letters Lexend lacks; money and titles still need a Hausa check.
+Inter throughout, because it covers every Yoruba, Igbo and Hausa letter and the naira sign. Lexend does not cover Hausa.
 
 ## Motion
-Values from the interfaces better-ui skill: press 0.96 over 150ms, entrances 12px over 300ms with 100ms stagger, tabular numbers.
+Press 0.96 over 150ms, entrances 12px over 300ms with 100ms stagger, tabular numbers.
 
 ## Signature patterns
-- Amounts appear with a pile of notes.
-- Amounts are entered by tapping notes, with typing as the fallback.
 - Payment confirms with press and hold. Letting go cancels.
-- Each balance card has Hear it in its notch.
+- Hear it stays on every confirmation.
+- Processing never shows a paid tick. The word on screen is Processing, never Pending. Only the backend sets paid.
+- Names on a payment screen wrap and money never truncates.

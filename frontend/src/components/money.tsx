@@ -19,8 +19,7 @@ export function breakIntoNotes(amount: number) {
   return out;
 }
 
-const noteFace = (v: number) =>
-  v >= 1000 ? { bg: color.lime, bd: color.ink } : v >= 500 ? { bg: color.lilac, bd: color.ink } : { bg: color.white, bd: color.ink };
+const noteFace = (_v: number) => ({ bg: color.panelHigh, bd: color.line });
 
 export function Note({ value, w = NOTE_W, h = NOTE_H }: { value: number; w?: number; h?: number }) {
   const f = noteFace(value);
@@ -64,18 +63,25 @@ function Pile({ value, count, delay }: { value: number; count: number; delay: nu
   );
 }
 
-/** Paying is a press and hold: the fill shows it is happening, and letting go cancels. */
+/** Paying is a press and hold. Letting go early cancels; letting go once the bar is full pays, so the release can never land on the next screen. */
 export function HoldToConfirm({ label, onDone, say }: { label: string; onDone(): void; say?: string }) {
   const a = useRef(new Animated.Value(0)).current;
   const [holding, setHolding] = React.useState(false);
+  const [full, setFull] = React.useState(false);
   const done = useRef(false);
+  const armed = useRef(false);
   const finish = () => { if (done.current) return; done.current = true; if (native) Vibration.vibrate(40); onDone(); };
   const start = () => {
     setHolding(true); if (native) Vibration.vibrate(10);
-    Animated.timing(a, { toValue: 1, duration: motion.hold, easing: Easing.linear, useNativeDriver: native }).start(({ finished }) => finished && finish());
+    Animated.timing(a, { toValue: 1, duration: motion.hold, easing: Easing.linear, useNativeDriver: native }).start(({ finished }) => {
+      if (!finished) return;
+      armed.current = true; setFull(true); if (native) Vibration.vibrate(20);
+    });
   };
   const stop = () => {
     setHolding(false); if (done.current) return;
+    // A beat after release, so the same touch cannot also tap whatever appears next.
+    if (armed.current) { setTimeout(finish, 350); return; }
     Animated.timing(a, { toValue: 0, duration: motion.base, useNativeDriver: native }).start();
   };
   return (
@@ -85,7 +91,7 @@ export function HoldToConfirm({ label, onDone, say }: { label: string; onDone():
       onPressIn={start} onPressOut={stop} style={n.hold}
     >
       <Animated.View style={[n.fill, { transform: [{ scaleX: a }] }]} />
-      <T v="heading" c={color.white}>{holding ? t.keepHolding : label}</T>
+      <T v="heading" c={color.ink}>{full ? t.letGoToPay : holding ? t.keepHolding : label}</T>
     </Pressable>
   );
 }
@@ -116,29 +122,31 @@ export function StatusMark({ status, size = 44, big }: { status: 'paid' | 'pendi
       {status === 'pending' ? (
         <Animated.View style={{ transform: [{ rotate: spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }] }}>
           <Svg width={size} height={size} viewBox={`0 0 ${b} ${b}`}>
-            <Circle cx={24} cy={24} r={20} fill="none" stroke={color.ink} strokeWidth={4} strokeDasharray="7 7" strokeLinecap="round" />
-            <Circle cx={24} cy={24} r={5} fill={color.ink} />
+            <Circle cx={24} cy={24} r={20} fill="none" stroke={color.text} strokeWidth={4} strokeDasharray="7 7" strokeLinecap="round" />
+            <Circle cx={24} cy={24} r={5} fill={color.text} />
           </Svg>
         </Animated.View>
       ) : (
         <Animated.View style={{ transform: [{ scale: ring }] }}>
           <Svg width={size} height={size} viewBox={`0 0 ${b} ${b}`}>
             {status === 'paid' && <>
-              <Circle cx={24} cy={24} r={23} fill={color.ink} />
-              <AnimatedPath d="M13 25l8 8 15-17" fill="none" stroke={color.lime} strokeWidth={5} strokeLinecap="round" strokeLinejoin="round" strokeDasharray="60" strokeDashoffset={offset as any} />
+              <Circle cx={24} cy={24} r={23} fill={color.green} />
+              {big && native
+                ? <AnimatedPath d="M13 25l8 8 15-17" fill="none" stroke={color.ink} strokeWidth={5} strokeLinecap="round" strokeLinejoin="round" strokeDasharray="60" strokeDashoffset={offset as any} />
+                : <Path d="M13 25l8 8 15-17" fill="none" stroke={color.ink} strokeWidth={5} strokeLinecap="round" strokeLinejoin="round" />}
             </>}
             {status === 'sent' && <>
-              <Circle cx={24} cy={24} r={21} fill="none" stroke={color.ink} strokeWidth={4} />
-              <Path d="M17 31l14-14M20 17h11v11" fill="none" stroke={color.ink} strokeWidth={4} strokeLinecap="round" strokeLinejoin="round" />
+              <Circle cx={24} cy={24} r={21} fill="none" stroke={color.text} strokeWidth={4} />
+              <Path d="M17 31l14-14M20 17h11v11" fill="none" stroke={color.text} strokeWidth={4} strokeLinecap="round" strokeLinejoin="round" />
             </>}
             {status === 'refused' && <>
-              <Rect x={3} y={3} width={42} height={42} rx={8} fill={color.lime} />
+              <Rect x={3} y={3} width={42} height={42} rx={8} fill={color.coral} />
               <Line x1={15} y1={15} x2={33} y2={33} stroke={color.ink} strokeWidth={5} strokeLinecap="round" />
               <Line x1={33} y1={15} x2={15} y2={33} stroke={color.ink} strokeWidth={5} strokeLinecap="round" />
             </>}
             {status === 'blocked' && <>
-              <Path d="M16 3h16l13 13v16L32 45H16L3 32V16z" fill="none" stroke={color.ink} strokeWidth={4} strokeLinejoin="round" />
-              <Line x1={14} y1={24} x2={34} y2={24} stroke={color.ink} strokeWidth={5} strokeLinecap="round" />
+              <Path d="M16 3h16l13 13v16L32 45H16L3 32V16z" fill="none" stroke={color.text} strokeWidth={4} strokeLinejoin="round" />
+              <Line x1={14} y1={24} x2={34} y2={24} stroke={color.text} strokeWidth={5} strokeLinecap="round" />
             </>}
           </Svg>
         </Animated.View>
@@ -168,16 +176,18 @@ export function SampleCode({ size = 250, seed = 7 }: { size?: number; seed?: num
       : (x === 7 || y === 7 || x === N - 8 || y === N - 8) ? false : ((x * 13 + y * 7 + x * y * seed) % 5) < 2;
     if (on) cells.push(<Rect key={`${x}-${y}`} x={x * c} y={y * c} width={c + 0.3} height={c + 0.3} fill={color.ink} />);
   }
-  return <Svg width={size} height={size} accessibilityLabel="Payment code">{cells}</Svg>;
+  return <View style={n.code}><Svg width={size} height={size} accessibilityLabel="Payment code">{cells}</Svg></View>;
 }
 
 const n = StyleSheet.create({
   row: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: space.md, minHeight: 66 },
   note: { borderRadius: 10, padding: 4 },
   inner: { flex: 1, borderWidth: 1, borderRadius: 7, alignItems: 'center', justifyContent: 'center' },
-  hold: { height: touch.hold, borderRadius: radius.pill, backgroundColor: color.ink, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
-  fill: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 7, backgroundColor: color.lime, transformOrigin: 'left center' } as any,
+  hold: { height: touch.hold, borderRadius: radius.md, backgroundColor: color.text, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
+  fill: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 7, backgroundColor: color.blue, transformOrigin: 'left center' } as any,
+  // Codes stay dark on white whatever the theme, or cameras cannot read them.
+  code: { backgroundColor: color.white, padding: space.md, borderRadius: radius.md },
   steps: { flexDirection: 'row', gap: space.sm },
   step: { flex: 1, height: 5, borderRadius: 3, backgroundColor: color.line },
-  stepOn: { backgroundColor: color.ink },
+  stepOn: { backgroundColor: color.blue },
 });

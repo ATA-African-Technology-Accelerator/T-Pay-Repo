@@ -1,70 +1,64 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, StyleSheet, TextInput, View, useWindowDimensions } from 'react-native';
-import { Plus } from 'lucide-react-native';
-import { color, radius, space, touch, type } from '../theme/tokens';
-import { Button, Folder, HearIt, Panel, Press, Rise, T, money, naira, native, useCardW, useReduceMotion } from '../components/ui';
-import { Avatar, CurvedHeader, Screen, Section } from '../components/shell';
-import { HoldToConfirm, NoteStack, SampleCode, StatusMark, Steps, noteValues } from '../components/money';
+import { Animated, Easing, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { color, radius, space } from '../theme/tokens';
+import { Keypad } from '../components/keypad';
+import { Button, Card, HearIt, Panel, Rise, T, money, naira, native, useCardW, useReduceMotion } from '../components/ui';
+import { Avatar, CurvedHeader, Screen } from '../components/shell';
+import { HoldToConfirm, NoteStack, SampleCode, StatusMark, Steps } from '../components/money';
 import { Duo } from '../components/rows';
 import { useNav } from '../nav';
-import { useStore } from '../demo/store';
+import { DEMO_RATE, useStore } from '../demo/store';
 import { t } from '../i18n/en';
 import { CheckDisc, NairaDisc, WalletDisc } from '../components/icons';
 
-/** Build an amount by tapping notes, the way cash is counted. Typing stays one tap away. */
+const MAX = 200000;
+const HOURS = [6, 12, 24];
+
+/** Amount entry: one calm panel for the figure, the action, then a large keypad. */
 export function Amount({ mode }: { mode: 'lock' | 'collect' }) {
   const nav = useNav();
-  const { lock } = useStore();
-  const w = useCardW();
+  const { active } = useStore();
+  const lock = mode === 'lock';
+  const cap = lock ? active : MAX;
   const [amount, setAmount] = useState(0);
-  const [typing, setTyping] = useState(false);
-  const next = () => {
-    if (mode === 'lock') { lock(amount); nav.reset({ name: 'home' }); }
-    else nav.go({ name: 'request', amount });
-  };
+  const [hours, setHours] = useState(24);
+  const next = () => nav.go(lock ? { name: 'vaultReview', amount, hours } : { name: 'request', amount });
+  const press = (k: string) => setAmount(a => (k === 'del' ? Math.floor(a / 10) : Math.min(Number(`${a}${k}`), cap)));
   return (
-    <Screen
-      head={<CurvedHeader back bell={false} title={mode === 'lock' ? t.howMuchLock : t.howMuchCollect} />}
-      footer={<Button label={mode === 'lock' ? t.toPayPal : t.showCustomer} disabled={!amount} onPress={next} />}
-    >
-      <Folder
-        w={w} h={162} fill={color.lime}
-        pill={<T v="smallStrong">{t.clear}</T>} pillLabel={t.clear} onPill={amount ? () => setAmount(0) : undefined}
-      >
-        <View style={p.folderBody}>
-          <T v="heading">{mode === 'lock' ? t.amountLock : t.amountCollect}</T>
-          <T v="moneyL" numberOfLines={1} accessibilityLiveRegion="polite">{naira(amount)}</T>
-        </View>
-      </Folder>
-      {typing ? (
-        <TextInput
-          autoFocus keyboardType="number-pad" accessibilityLabel="Amount in naira" value={amount ? String(amount) : ''}
-          onChangeText={v => setAmount(Number(v.replace(/\D/g, '').slice(0, 7)))} style={p.input}
-        />
-      ) : (
-        <>
-          {amount > 0 && <NoteStack amount={amount} />}
-          <Section title={t.tapNotes} />
-          <View style={p.notes}>
-            {noteValues.map(v => (
-              <View key={v} style={p.noteCell}>
-                <Press accessibilityRole="button" accessibilityLabel={`Add ${naira(v)}`} onPress={() => setAmount(a => Math.min(a + v, 200000))} style={p.noteKey}>
-                  <T v="heading">{naira(v)}</T>
-                  <View style={p.plus}><Plus size={18} color={color.white} strokeWidth={2.2} /></View>
-                </Press>
-              </View>
+    <Screen head={<CurvedHeader back bell={false} title={lock ? t.howMuchLock : t.howMuchCollect} />}>
+      <Panel style={p.amount}>
+        <T v="small" c={color.muted}>{lock ? t.amountLock : t.amountCollect}</T>
+        <T v="moneyL" c={amount ? color.text : color.muted} numberOfLines={1} accessibilityLiveRegion="polite">{naira(amount)}</T>
+        {lock && <T v="small" c={color.muted}>{`${t.availableNow}: ${money(active)}`}</T>}
+      </Panel>
+      {lock && (
+        <View style={{ gap: space.sm }} accessibilityRole="radiogroup" accessibilityLabel={t.howLong}>
+          <T v="smallStrong" c={color.muted}>{t.howLong}</T>
+          <View style={p.chips}>
+            {HOURS.map(h => (
+              <Pressable key={h} accessibilityRole="radio" accessibilityState={{ selected: h === hours }} accessibilityLabel={`${h} ${t.hours}`} onPress={() => setHours(h)} style={[p.chip, h === hours && p.chipOn]}>
+                <T v="label" c={h === hours ? color.text : color.muted}>{`${h} ${t.hours}`}</T>
+              </Pressable>
             ))}
           </View>
-        </>
+        </View>
       )}
-      <Button kind="quiet" label={typing ? t.useNotes : t.typeInstead} onPress={() => setTyping(x => !x)} />
+      <Button label={!amount ? t.enterAmount : t.continue} disabled={!amount} onPress={next} />
+      <Keypad onKey={press} />
     </Screen>
   );
 }
 
-export function Scan() {
+const SCAN = {
+  request: { at: 1 as const, title: t.scanSeller, hint: t.noNetworkNeeded },
+  voucher: { at: 2 as const, title: t.scanVoucher, hint: t.scanVoucherHint },
+  receipt: { at: 3 as const, title: t.scanReceipt, hint: t.scanReceiptHint },
+};
+
+/** The one camera screen. What it is looking for decides what happens next. */
+export function Scan({ kind, amount }: { kind: 'request' | 'voucher' | 'receipt'; amount: number }) {
   const nav = useNav();
-  const { locked, pending } = useStore();
+  const { left } = useStore();
   const reduce = useReduceMotion();
   const w = useCardW();
   const a = useRef(new Animated.Value(0)).current;
@@ -77,47 +71,53 @@ export function Scan() {
     loop.start();
     return () => loop.stop();
   }, [reduce]);
-  const scan = (amount: number) => nav.go(amount > locked - pending ? { name: 'refused', amount } : { name: 'review', amount });
+  const cfg = SCAN[kind];
+  const ask = (n: number) => nav.go(n > left ? { name: 'refused', amount: n } : { name: 'review', amount: n });
   return (
-    <Screen head={<CurvedHeader back bell={false} title={t.scanSeller} />}>
-      <Steps at={1} />
-      <Folder w={w} h={270} fill={color.ink} pill={<T v="smallStrong" c={color.white}>{t.noNetwork}</T>}>
+    <Screen head={<CurvedHeader back bell={false} title={cfg.title} />}>
+      <Steps at={cfg.at} />
+      <Card w={w} h={270} fill={color.panel} pill={<T v="smallStrong" c={color.white}>{t.noNetwork}</T>}>
         <View style={p.frame} accessibilityLabel="Camera view">
           {(['tl', 'tr', 'bl', 'br'] as const).map(k => <View key={k} style={[p.corner, p[k]]} />)}
           <Animated.View style={[p.sweep, { transform: [{ translateY: a.interpolate({ inputRange: [0, 1], outputRange: [0, 136] }) }] }]} />
         </View>
-      </Folder>
-      <T v="body" c={color.muted} style={p.center}>{t.demo}</T>
-      <Button label="Seller asks ₦2,000" onPress={() => scan(2000)} />
-      <Button label="Seller asks ₦90,000" kind="soft" onPress={() => scan(90000)} />
+      </Card>
+      <T v="body" c={color.muted} style={p.center}>{cfg.hint}</T>
+      <T v="small" c={color.muted} style={p.center}>{t.demo}</T>
+      {kind === 'request' && <>
+        <Button label="Seller asks ₦2,000" onPress={() => ask(2000)} />
+        <Button label="Seller asks ₦90,000" kind="soft" onPress={() => ask(90000)} />
+      </>}
+      {kind === 'voucher' && <>
+        <Button label={t.sampleValid} onPress={() => nav.reset({ name: 'credit', amount })} />
+        <Button label={t.sampleTampered} kind="soft" onPress={() => nav.go({ name: 'tampered', amount })} />
+        <Button label={t.sampleDuplicate} kind="soft" onPress={() => nav.go({ name: 'duplicate', amount })} />
+      </>}
+      {kind === 'receipt' && <Button label={t.sampleValid} onPress={() => nav.reset({ name: 'delivered', amount })} />}
     </Screen>
+  );
+}
+
+function Row({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
+  return (
+    <View style={p.sumRow} accessible accessibilityLabel={`${label}, ${value}`}>
+      <T v="body" c={color.muted}>{label}</T>
+      <T v={strong ? 'heading' : 'label'} style={p.sumValue}>{value}</T>
+    </View>
   );
 }
 
 export function Review({ amount }: { amount: number }) {
   const nav = useNav();
-  const { locked, pending, seller, pay } = useStore();
-  const left = locked - pending;
+  const { left, seller, pay } = useStore();
   const say = `Pay ${amount} naira to ${seller}`;
+  const usd = (amount / DEMO_RATE).toFixed(2);
   return (
     <Screen
       head={<CurvedHeader back bell={false} title={t.checkPay} />}
-      footer={<HoldToConfirm label={t.holdToPay} say={say} onDone={() => { pay(amount); nav.go({ name: 'voucher', amount }); }} />}
+      footer={<HoldToConfirm label={t.holdToPay} say={say} onDone={() => { pay(amount); nav.reset({ name: 'voucher', amount }); }} />}
     >
       <Rise>
-        <Panel dent={false}>
-          <T v="section">{t.payTo}</T>
-          <View style={p.row}>
-            <Avatar name={seller} tone={color.peach} />
-            <View style={{ flex: 1 }}>
-              <T v="heading" numberOfLines={1}>{seller}</T>
-              <T v="small" c={color.muted}>{t.verified}</T>
-            </View>
-            <CheckDisc size={24} c={color.ink} />
-          </View>
-        </Panel>
-      </Rise>
-      <Rise delay={100}>
         <Panel style={p.center2}>
           <T v="body" c={color.muted}>{t.youPay}</T>
           <T v="moneyL">{money(amount)}</T>
@@ -125,19 +125,28 @@ export function Review({ amount }: { amount: number }) {
           <HearIt say={say} />
         </Panel>
       </Rise>
-      <Duo items={[
-        { label: t.youHaveNow, value: money(left), fill: color.lime, icon: <WalletDisc size={23} c={color.ink} /> },
-        { label: t.afterThis, value: money(left - amount), fill: color.lilacSoft, icon: <NairaDisc size={23} c={color.ink} /> },
-      ]} />
+      <Rise delay={100}>
+        <Panel>
+          <T v="section" accessibilityRole="header">{t.paymentSummary}</T>
+          <View style={p.row}>
+            <Avatar name={seller} />
+            <View style={{ flex: 1 }}>
+              <T v="heading" numberOfLines={2}>{seller}</T>
+              <T v="small" c={color.muted}>{t.verified}</T>
+            </View>
+            <CheckDisc size={24} c={color.green} />
+          </View>
+          <Row label={t.fromWallet} value={t.walletOffline} />
+          <Row label={t.amountUsd} value={`$${usd}`} />
+          <Row label={t.demoRate} value={`₦${DEMO_RATE.toLocaleString('en-US')}.00 ${t.ngnPerUsd}`} />
+          <Row label={t.leftAfterThis} value={money(left - amount)} strong />
+        </Panel>
+      </Rise>
     </Screen>
   );
 }
 
-export function Refused({ amount }: { amount: number }) {
-  const nav = useNav();
-  const { locked, pending } = useStore();
-  const w = useCardW();
-  const left = locked - pending;
+function Stop({ say, children, footer }: { say: string; children: React.ReactNode; footer: React.ReactNode }) {
   const reduce = useReduceMotion();
   const x = useRef(new Animated.Value(0)).current;
   useEffect(() => {
@@ -145,22 +154,56 @@ export function Refused({ amount }: { amount: number }) {
     Animated.sequence([-7, 6, -4, 0].map(toValue => Animated.timing(x, { toValue, duration: 60, useNativeDriver: native }))).start();
   }, []);
   return (
-    <Screen head={<CurvedHeader back bell={false} title={t.checkPay} />} footer={<Button label={t.backHome} onPress={() => nav.reset({ name: 'home' })} />}>
-      <Animated.View style={{ transform: [{ translateX: x }] }}>
-        <Folder w={w} h={196} fill={color.ink} pill={<T v="smallStrong" c={color.white}>{t.status.refused}</T>}>
-          <View style={p.folderBody}>
-            <StatusMark status="refused" size={40} />
-            <T v="hello" c={color.white}>{t.notEnough}</T>
-            <T v="small" c={color.onDark}>{t.nothingMoved}</T>
-          </View>
-        </Folder>
-      </Animated.View>
-      <Duo items={[
-        { label: t.sellerAskedShort, value: money(amount), fill: color.peach, icon: <NairaDisc size={23} c={color.ink} /> },
-        { label: t.haveShort, value: money(left), fill: color.lime, icon: <WalletDisc size={23} c={color.ink} /> },
-      ]} />
-      <HearIt say={`${t.tooMuch}. ${t.nothingMoved}`} />
+    <Screen head={<CurvedHeader back bell={false} title={t.checkPay} />} footer={footer}>
+      <Animated.View style={{ transform: [{ translateX: x }], gap: space.md }}>{children}</Animated.View>
+      <HearIt say={say} />
     </Screen>
+  );
+}
+
+export function Refused({ amount }: { amount: number }) {
+  const nav = useNav();
+  const { left } = useStore();
+  return (
+    <Stop say={`${t.tooMuch}. ${t.nothingMoved}`} footer={<Button label={t.backHome} onPress={() => nav.reset({ name: 'home' })} />}>
+      <Panel style={p.stop}>
+        <StatusMark status="refused" size={44} />
+        <T v="hello">{t.notEnough}</T>
+        <T v="body" c={color.muted}>{t.nothingMoved}</T>
+      </Panel>
+      <Duo items={[
+        { label: t.sellerAskedShort, value: money(amount), fill: color.amber, icon: <NairaDisc size={23} c={color.ink} /> },
+        { label: t.haveShort, value: money(left), fill: color.green, icon: <WalletDisc size={23} c={color.ink} /> },
+      ]} />
+    </Stop>
+  );
+}
+
+export function Tampered({ amount }: { amount: number }) {
+  const nav = useNav();
+  return (
+    <Stop say={`${t.dontGive}. ${t.tamperedWhy}`} footer={<Button label={t.scanAgain} onPress={() => nav.back()} />}>
+      <Panel style={p.stop}>
+        <StatusMark status="refused" size={44} />
+        <T v="hello">{t.dontGive}</T>
+        <T v="body" c={color.muted}>{t.tamperedWhy}</T>
+      </Panel>
+      <Panel><Row label={t.amountCollect} value={money(amount)} /><Row label={t.creditAdded} value={naira(0)} strong /></Panel>
+    </Stop>
+  );
+}
+
+export function Duplicate({ amount }: { amount: number }) {
+  const nav = useNav();
+  return (
+    <Stop say={`${t.alreadyTook}. ${t.countedOnce}`} footer={<Button label={t.showReceiptAgain} onPress={() => nav.reset({ name: 'credit', amount, again: true })} />}>
+      <Panel style={p.stop}>
+        <StatusMark status="blocked" size={44} />
+        <T v="hello">{t.alreadyTook}</T>
+        <T v="body" c={color.muted}>{t.countedOnce}</T>
+      </Panel>
+      <Panel><Row label={t.amountCollect} value={money(amount)} strong /></Panel>
+    </Stop>
   );
 }
 
@@ -169,7 +212,7 @@ export function Voucher({ amount }: { amount: number }) {
   const { width } = useWindowDimensions();
   const size = Math.min(Math.min(width, 390) - 110, 230);
   return (
-    <Screen head={<CurvedHeader bell={false} title={t.showSeller} />} footer={<Button label={t.sellerGotIt} onPress={() => nav.reset({ name: 'delivered', amount } as any)} />}>
+    <Screen head={<CurvedHeader bell={false} title={t.showSeller} />} footer={<Button label={t.scanReceiptGo} onPress={() => nav.go({ name: 'scan', kind: 'receipt', amount })} />}>
       <Steps at={2} />
       <Rise><Panel style={p.center2}><SampleCode size={size} /></Panel></Rise>
       <T v="moneyL" style={p.center}>{money(amount)}</T>
@@ -178,33 +221,22 @@ export function Voucher({ amount }: { amount: number }) {
   );
 }
 
-export function Done({ title, amount, who, say, note }: { title: string; amount: number; who?: string; say: string; note: string }) {
-  const w = useCardW();
-  return (
-    <>
-      <Rise>
-        <Folder w={w} h={250} fill={color.lime} pill={<T v="smallStrong">{t.status.pending}</T>}>
-          <View style={p.folderBody}>
-            <StatusMark status="paid" size={52} big />
-            <T v="title">{title}</T>
-            <T v="moneyL" numberOfLines={1}>{money(amount)}</T>
-            {who && <T v="small" numberOfLines={1}>{who}</T>}
-          </View>
-        </Folder>
-      </Rise>
-      <View style={p.state}><StatusMark status="pending" size={22} /><T v="label">{t.status.pending}</T></View>
-      <T v="body" c={color.muted} style={p.center}>{note}</T>
-      <HearIt say={say} />
-    </>
-  );
-}
-
 export function Delivered({ amount }: { amount: number }) {
   const nav = useNav();
   const { seller } = useStore();
+  const say = `${t.sellerHas}. ${amount} naira. ${t.settlesItself}`;
   return (
     <Screen head={<CurvedHeader bell={false} title={t.paymentSent} />} footer={<Button label={t.done} onPress={() => nav.reset({ name: 'home' })} />}>
-      <Done title={t.sellerHas} amount={amount} who={seller} note={t.settlesItself} say={`${t.sellerHas}. ${amount} naira. ${t.settlesItself}`} />
+      <Rise>
+        <Panel style={p.stop}>
+          <StatusMark status="pending" size={44} />
+          <T v="title">{t.sellerHas}</T>
+          <T v="moneyL" numberOfLines={1}>{money(amount)}</T>
+          <T v="small" c={color.muted} numberOfLines={2}>{seller}</T>
+        </Panel>
+      </Rise>
+      <T v="body" c={color.muted} style={p.center}>{t.settlesItself}</T>
+      <HearIt say={say} />
     </Screen>
   );
 }
@@ -213,19 +245,19 @@ export const p = StyleSheet.create({
   center: { textAlign: 'center' },
   center2: { alignItems: 'center' },
   row: { flexDirection: 'row', alignItems: 'center', gap: space.md },
-  folderBody: { flex: 1, paddingHorizontal: space.xxl - 2, paddingVertical: space.xl, justifyContent: 'flex-end', gap: 4 },
-  notes: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm + 2 },
-  noteCell: { flexBasis: '47%', flexGrow: 1 },
-  noteKey: { height: 62, borderRadius: radius.pill, backgroundColor: color.white, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingLeft: space.xl + 2, paddingRight: 10 },
-  plus: { width: 42, height: 42, borderRadius: 21, backgroundColor: color.ink, alignItems: 'center', justifyContent: 'center' },
-  input: { ...type.heading, color: color.ink, height: touch.button + 4, backgroundColor: color.white, borderRadius: radius.pill, textAlign: 'center' },
+  stop: { gap: space.xs, paddingVertical: space.xl },
+  amount: { gap: 2, paddingVertical: space.lg },
+  chips: { flexDirection: 'row', gap: space.sm },
+  chip: { flex: 1, minHeight: 48, borderRadius: radius.md, backgroundColor: color.panel, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'transparent' },
+  chipOn: { backgroundColor: color.panelHigh, borderColor: color.blue },
+  sumRow: { flexDirection: 'row', justifyContent: 'space-between', gap: space.lg },
+  sumValue: { flexShrink: 1, textAlign: 'right' },
   frame: { position: 'absolute', left: 26, right: 26, top: 74, bottom: 26 },
-  corner: { position: 'absolute', width: 40, height: 40, borderColor: color.lime },
+  corner: { position: 'absolute', width: 40, height: 40, borderColor: color.blue },
   tl: { top: 0, left: 0, borderTopWidth: 4, borderLeftWidth: 4, borderTopLeftRadius: radius.md },
   tr: { top: 0, right: 0, borderTopWidth: 4, borderRightWidth: 4, borderTopRightRadius: radius.md },
   bl: { bottom: 0, left: 0, borderBottomWidth: 4, borderLeftWidth: 4, borderBottomLeftRadius: radius.md },
   br: { bottom: 0, right: 0, borderBottomWidth: 4, borderRightWidth: 4, borderBottomRightRadius: radius.md },
-  sweep: { position: 'absolute', top: 16, left: 8, right: 8, height: 3, borderRadius: 2, backgroundColor: color.lime },
+  sweep: { position: 'absolute', top: 16, left: 8, right: 8, height: 3, borderRadius: 2, backgroundColor: color.blue },
   state: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space.sm },
 });
-
