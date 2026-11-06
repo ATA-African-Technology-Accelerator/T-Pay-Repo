@@ -1,7 +1,8 @@
 import { ApiError } from '../../services/ApiError';
 import type {
   AuthorizeOrderInput, CaptureInput, CaptureResult, CreateOrderInput, FindCaptureInput,
-  IPaymentGateway, PaymentAuthorization, PaymentOrder, VoidResult, WebhookNotification,
+  IPaymentGateway, PaymentAuthorization, PaymentOrder, PayoutInput, PayoutResult, PayoutStatus,
+  VoidResult, WebhookNotification,
 } from '../../services/ports';
 
 
@@ -17,6 +18,9 @@ const ALREADY_VOIDED_ISSUES = ['PREVIOUSLY_VOIDED', 'AUTHORIZATION_VOIDED'];
 const RETRY_STATUSES = [408, 409, 429];
 const SERVER_ERROR_STATUS = 500;
 const DUPLICATE_INVOICE_ISSUE = 'DUPLICATE_INVOICE_ID';
+const PAYOUTS_PATH = '/v1/payments/payouts';
+const FAILED_BATCHES = ['DENIED', 'CANCELED'];
+const FAILED_ITEMS = ['FAILED', 'RETURNED', 'BLOCKED', 'REFUNDED', 'REVERSED'];
 
 
 export interface PayPalConfig {
@@ -172,6 +176,44 @@ export class PayPalGateway implements IPaymentGateway {
   }
 
 
+  public async createPayout({ amountUsdMinor, receiverEmail, senderBatchId }: PayoutInput): Promise<PayoutResult> {
+    try {
+      const reply = await this.request(PAYOUTS_PATH, {
+        method: 'POST',
+        body: {
+          sender_batch_header: {
+            sender_batch_id: senderBatchId,
+            recipient_type: 'EMAIL',
+            email_subject: 'Your T-Pay withdrawal',
+          },
+          items: [
+            {
+              recipient_type: 'EMAIL',
+              receiver: receiverEmail,
+              sender_item_id: senderBatchId,
+              amount: { currency: 'USD', value: toUsdValue(amountUsdMinor) },
+            },
+          ],
+        },
+      });
+      return this.classifyPayout(reply);
+    } catch {
+      return { outcome: 'RETRY' };
+    }
+  }
+
+
+  public async getPayoutStatus(batchId: string): Promise<PayoutStatus> {
+    const reply = await this.request(`${PAYOUTS_PATH}/${encodeURIComponent(batchId)}`, { method: 'GET' });
+    this.assertOk(reply, 'read payout');
+    const item: string | undefined = reply.body.items?.[0]?.transaction_status;
+    if (FAILED_BATCHES.includes(reply.body.batch_header?.batch_status) || FAILED_ITEMS.includes(item ?? '')) {
+      return 'FAILED';
+    }
+    return item === 'SUCCESS' ? 'COMPLETED' : 'PENDING';
+  }
+
+
   public async verifyWebhook({ headers, rawBody }: WebhookNotification): Promise<boolean> {
     const { webhookId } = this.config;
     if (!webhookId) {
@@ -201,6 +243,20 @@ export class PayPalGateway implements IPaymentGateway {
     } catch {
       return false;
     }
+  }
+
+
+  private classifyPayout(reply: PayPalReply): PayoutResult {
+    const links: Array<{ href: string }> = reply.body?.links ?? [];
+    const original = links.map(({ href }) => href).find((href) => href.includes(`${PAYOUTS_PATH}/`));
+    const batchId = reply.ok ? reply.body?.batch_header?.payout_batch_id : original?.split('/').at(-1);
+    if (batchId) {
+      return { outcome: 'ACCEPTED', batchId };
+    }
+    if (reply.ok || RETRY_STATUSES.includes(reply.status) || reply.status >= SERVER_ERROR_STATUS) {
+      return { outcome: 'RETRY' };
+    }
+    return { outcome: 'REJECTED', reason: reply.body?.name ?? `HTTP_${reply.status}` };
   }
 
 

@@ -6,6 +6,7 @@ import { PayPalGateway } from '../src/adapters/paypal/PayPalGateway';
 const PROOF_AMOUNT_USD_MINOR = 300;
 const FIRST_CAPTURE_USD_MINOR = 100;
 const SECOND_CAPTURE_USD_MINOR = 50;
+const PROOF_PAYOUT_USD_MINOR = 50;
 
 function required(name: string): string {
   const value = process.env[name];
@@ -71,3 +72,13 @@ console.log(
     ? 'The sandbox proof passed: hold, two partial captures, read-back and release.'
     : 'PayPal refused to void after partial captures. Send this result to the developer.',
 );
+
+const payoutEmail = process.env.PAYPAL_PROOF_PAYOUT_EMAIL;
+if (payoutEmail) {
+  const payout = await gateway.createPayout({
+    senderBatchId: `${proofId}-payout`,
+    receiverEmail: payoutEmail,
+    amountUsdMinor: PROOF_PAYOUT_USD_MINOR,
+  });
+  console.log('7. Payout:', payout);
+}

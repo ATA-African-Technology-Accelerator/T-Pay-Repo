@@ -355,6 +355,90 @@ describe('PayPalGateway', () => {
     });
   });
 
+  describe('createPayout', () => {
+    const INPUT = { senderBatchId: 'wdr_1', receiverEmail: 'seller@example.com', amountUsdMinor: 133 };
+
+    it('sends one payout, using the withdrawal as the batch id', async () => {
+      route = () => json(201, { batch_header: { payout_batch_id: 'BATCH-1', batch_status: 'PENDING' } });
+
+      const result = await gateway.createPayout(INPUT);
+
+      const { url, init } = lastCall();
+      expect(url).toBe(`${BASE_URL}/v1/payments/payouts`);
+      expect(JSON.parse(init.body as string)).toEqual({
+        sender_batch_header: {
+          sender_batch_id: 'wdr_1',
+          recipient_type: 'EMAIL',
+          email_subject: 'Your T-Pay withdrawal',
+        },
+        items: [
+          {
+            recipient_type: 'EMAIL',
+            receiver: 'seller@example.com',
+            sender_item_id: 'wdr_1',
+            amount: { currency: 'USD', value: '1.33' },
+          },
+        ],
+      });
+      expect(result).toEqual({ outcome: 'ACCEPTED', batchId: 'BATCH-1' });
+    });
+
+    it('recovers the batch when PayPal says the id was already used', async () => {
+      route = () => json(400, {
+        name: 'USER_BUSINESS_ERROR',
+        links: [{ rel: 'self', href: `${BASE_URL}/v1/payments/payouts/BATCH-OLD` }],
+      });
+
+      expect(await gateway.createPayout(INPUT)).toEqual({ outcome: 'ACCEPTED', batchId: 'BATCH-OLD' });
+    });
+
+    it.each([
+      ['a server error', () => json(500, {})],
+      ['a rate limit', () => json(429, {})],
+      ['a timeout', () => Promise.reject(new DOMException('timed out', 'TimeoutError'))],
+    ])('retries after %s', async (_name, reply) => {
+      route = reply as Route;
+
+      expect(await gateway.createPayout(INPUT)).toEqual({ outcome: 'RETRY' });
+    });
+
+    it('rejects a refused payout', async () => {
+      route = () => json(422, { name: 'INSUFFICIENT_FUNDS' });
+
+      expect(await gateway.createPayout(INPUT)).toEqual({ outcome: 'REJECTED', reason: 'INSUFFICIENT_FUNDS' });
+    });
+  });
+
+  describe('getPayoutStatus', () => {
+    const batch = (status: string, items: object[] = []) => () =>
+      json(200, { batch_header: { batch_status: status }, items });
+
+    it.each([
+      ['SUCCESS', 'SUCCESS', 'COMPLETED'],
+      ['SUCCESS', 'UNCLAIMED', 'PENDING'],
+      ['SUCCESS', 'FAILED', 'FAILED'],
+      ['SUCCESS', 'RETURNED', 'FAILED'],
+      ['PROCESSING', 'PENDING', 'PENDING'],
+    ])('maps batch %s with item %s to %s', async (batchStatus, itemStatus, expected) => {
+      route = batch(batchStatus, [{ transaction_status: itemStatus }]);
+
+      expect(await gateway.getPayoutStatus('BATCH-1')).toBe(expected);
+      expect(lastCall().url).toBe(`${BASE_URL}/v1/payments/payouts/BATCH-1`);
+    });
+
+    it.each(['DENIED', 'CANCELED'])('fails a %s batch', async (status) => {
+      route = batch(status);
+
+      expect(await gateway.getPayoutStatus('BATCH-1')).toBe('FAILED');
+    });
+
+    it('stays pending while the batch has no item yet', async () => {
+      route = batch('PENDING');
+
+      expect(await gateway.getPayoutStatus('BATCH-1')).toBe('PENDING');
+    });
+  });
+
   describe('verifyWebhook', () => {
     const rawBody = '{"id":"WH-1","event_type":"PAYMENT.CAPTURE.COMPLETED"}';
     const headers = {
