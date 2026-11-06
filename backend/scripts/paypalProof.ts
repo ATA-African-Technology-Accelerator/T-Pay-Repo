@@ -3,7 +3,9 @@ import { randomUUID } from 'node:crypto';
 import { createInterface } from 'node:readline/promises';
 import { PayPalGateway } from '../src/adapters/paypal/PayPalGateway';
 
-const PROOF_AMOUNT_USD_MINOR = 100;
+const PROOF_AMOUNT_USD_MINOR = 300;
+const FIRST_CAPTURE_USD_MINOR = 100;
+const SECOND_CAPTURE_USD_MINOR = 50;
 
 function required(name: string): string {
   const value = process.env[name];
@@ -48,5 +50,24 @@ if (!authorization) {
 }
 console.log(`3. Funds held: ${authorization.authorizationId} for ${authorization.amountUsdMinor} cents`);
 
-await gateway.voidAuthorization(authorization.authorizationId);
-console.log('4. Hold released. The sandbox proof passed.');
+for (const [step, amountUsdMinor] of [[4, FIRST_CAPTURE_USD_MINOR], [5, SECOND_CAPTURE_USD_MINOR]] as const) {
+  const invoiceId = `${proofId}-${step}`;
+  const capture = await gateway.capture({
+    authorizationId: authorization.authorizationId,
+    requestId: `${invoiceId}-capture`,
+    invoiceId,
+    amountUsdMinor,
+  });
+  console.log(`${step}. Partial capture of ${amountUsdMinor} cents:`, capture);
+
+  const readBack = await gateway.findCapture({ orderId: order.orderId, invoiceId });
+  console.log(`   Read back by invoice:`, readBack);
+}
+
+const released = await gateway.voidAuthorization(authorization.authorizationId);
+console.log(`6. Release of the remaining hold: ${released}`);
+console.log(
+  released === 'VOIDED'
+    ? 'The sandbox proof passed: hold, two partial captures, read-back and release.'
+    : 'PayPal refused to void after partial captures. Send this result to the developer.',
+);

@@ -1,44 +1,68 @@
 import { ApiError } from '../../services/ApiError';
 import type {
-  AuthorizeOrderInput, CreateOrderInput, IPaymentGateway, PaymentAuthorization, PaymentOrder,
+  AuthorizeOrderInput, CaptureInput, CaptureResult, CreateOrderInput, FindCaptureInput,
+  IPaymentGateway, PaymentAuthorization, PaymentOrder, VoidResult, WebhookNotification,
 } from '../../services/ports';
+
+
+
+
+
 
 const REQUEST_TIMEOUT_MS = 15_000;
 const TOKEN_EXPIRY_MARGIN_MS = 60_000;
 const CENTS_PER_DOLLAR = 100;
 const USD_VALUE_PATTERN = /^\d+\.\d{2}$/;
 const ALREADY_VOIDED_ISSUES = ['PREVIOUSLY_VOIDED', 'AUTHORIZATION_VOIDED'];
+const RETRY_STATUSES = [408, 409, 429];
+const SERVER_ERROR_STATUS = 500;
+const DUPLICATE_INVOICE_ISSUE = 'DUPLICATE_INVOICE_ID';
+
 
 export interface PayPalConfig {
   clientId: string;
   clientSecret: string;
   baseUrl: string;
+  webhookId?: string;
 }
+
 
 interface PayPalReply {
   ok: boolean;
   status: number;
-  // PayPal's JSON is checked field by field where it is read.
   body: any;
 }
+
 
 interface RequestOptions {
   method: 'GET' | 'POST';
   body?: unknown;
+  rawBody?: string;
   requestId?: string;
 }
+
 
 const toUsdValue = (cents: number) => {
   const dollars = Math.floor(cents / CENTS_PER_DOLLAR);
   return `${dollars}.${String(cents % CENTS_PER_DOLLAR).padStart(2, '0')}`;
 };
 
+
 const unavailable = (detail: string) => {
   console.error(`PayPal request failed: ${detail}`);
   return new ApiError('PAYPAL_UNAVAILABLE', 'PayPal could not complete the request');
 };
 
+
 const firstIssue = (reply: PayPalReply): string | undefined => reply.body?.details?.[0]?.issue;
+
+
+const toCaptureResult = ({ id, status }: { id: string; status: string }): CaptureResult => {
+  if (status === 'COMPLETED' || status === 'PENDING') {
+    return { outcome: status, captureId: id };
+  }
+  return { outcome: 'BLOCKED', reason: `CAPTURE_${status}` };
+};
 
 export class PayPalGateway implements IPaymentGateway {
   private token: { value: string; expiresAt: number } | null = null;
@@ -83,6 +107,7 @@ export class PayPalGateway implements IPaymentGateway {
     return { orderId: reply.body.id, approvalUrl: link.href };
   }
 
+
   public async authorizeOrder({ orderId, requestId }: AuthorizeOrderInput): Promise<PaymentAuthorization | null> {
     const path = `/v2/checkout/orders/${encodeURIComponent(orderId)}`;
     const reply = await this.request(`${path}/authorize`, { method: 'POST', requestId, body: {} });
@@ -99,15 +124,75 @@ export class PayPalGateway implements IPaymentGateway {
     return this.readAuthorization(reply);
   }
 
-  public async voidAuthorization(authorizationId: string): Promise<void> {
+
+  public async capture(input: CaptureInput): Promise<CaptureResult> {
+    try {
+      const reply = await this.request(
+        `/v2/payments/authorizations/${encodeURIComponent(input.authorizationId)}/capture`,
+        {
+          method: 'POST',
+          requestId: input.requestId,
+          body: {
+            amount: { currency_code: 'USD', value: toUsdValue(input.amountUsdMinor) },
+            invoice_id: input.invoiceId,
+            final_capture: false,
+          },
+        },
+      );
+      return this.classifyCapture(reply);
+    } catch {
+      return { outcome: 'RETRY' };
+    }
+  }
+
+
+  public async findCapture({ invoiceId, orderId }: FindCaptureInput): Promise<CaptureResult | null> {
+    const reply = await this.request(`/v2/checkout/orders/${encodeURIComponent(orderId)}`, { method: 'GET' });
+    this.assertOk(reply, 'read order');
+    const captures: Array<{ id: string; status: string; invoice_id?: string }> =
+      reply.body.purchase_units?.[0]?.payments?.captures ?? [];
+    const capture = captures.find((candidate) => candidate.invoice_id === invoiceId);
+    return capture ? toCaptureResult(capture) : null;
+  }
+
+
+  public async voidAuthorization(authorizationId: string): Promise<VoidResult> {
     const reply = await this.request(
       `/v2/payments/authorizations/${encodeURIComponent(authorizationId)}/void`,
       { method: 'POST', requestId: `${authorizationId}-void` },
     );
-    if (!ALREADY_VOIDED_ISSUES.includes(firstIssue(reply) ?? '')) {
+    const issue = firstIssue(reply) ?? '';
+    if (issue === 'PREVIOUSLY_CAPTURED') {
+      return 'ALREADY_CAPTURED';
+    }
+    if (!ALREADY_VOIDED_ISSUES.includes(issue)) {
       this.assertOk(reply, 'void authorization');
     }
+    return 'VOIDED';
   }
+
+
+  public async verifyWebhook({ headers, rawBody }: WebhookNotification): Promise<boolean> {
+    const { webhookId } = this.config;
+    if (!webhookId) {
+      return false;
+    }
+    const fields = JSON.stringify({
+      auth_algo: headers['paypal-auth-algo'],
+      cert_url: headers['paypal-cert-url'],
+      transmission_id: headers['paypal-transmission-id'],
+      transmission_sig: headers['paypal-transmission-sig'],
+      transmission_time: headers['paypal-transmission-time'],
+      webhook_id: webhookId,
+    });
+    const reply = await this.request('/v1/notifications/verify-webhook-signature', {
+      method: 'POST',
+      rawBody: `${fields.slice(0, -1)},"webhook_event":${rawBody}}`,
+    });
+    this.assertOk(reply, 'verify webhook');
+    return reply.body?.verification_status === 'SUCCESS';
+  }
+
 
   public async isReachable(): Promise<boolean> {
     try {
@@ -117,6 +202,23 @@ export class PayPalGateway implements IPaymentGateway {
       return false;
     }
   }
+
+
+  private classifyCapture(reply: PayPalReply): CaptureResult {
+    const issue = firstIssue(reply);
+    if (reply.ok) {
+      return toCaptureResult(reply.body);
+    }
+    if (
+      issue === DUPLICATE_INVOICE_ISSUE
+      || RETRY_STATUSES.includes(reply.status)
+      || reply.status >= SERVER_ERROR_STATUS
+    ) {
+      return { outcome: 'RETRY' };
+    }
+    return { outcome: 'BLOCKED', reason: issue ?? reply.body?.name ?? `HTTP_${reply.status}` };
+  }
+
 
   private readAuthorization(reply: PayPalReply): PaymentAuthorization | null {
     const authorization = reply.body.purchase_units?.[0]?.payments?.authorizations?.[0];
@@ -138,7 +240,8 @@ export class PayPalGateway implements IPaymentGateway {
     }
   }
 
-  private async request(path: string, { method, body, requestId }: RequestOptions): Promise<PayPalReply> {
+
+  private async request(path: string, { method, body, rawBody, requestId }: RequestOptions): Promise<PayPalReply> {
     return this.send(`${this.config.baseUrl}${path}`, {
       method,
       headers: {
@@ -148,8 +251,10 @@ export class PayPalGateway implements IPaymentGateway {
         ...(requestId ? { 'PayPal-Request-Id': requestId } : {}),
       },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      ...(rawBody === undefined ? {} : { body: rawBody }),
     });
   }
+
 
   private async accessToken(): Promise<string> {
     if (this.token && Date.now() < this.token.expiresAt) {
@@ -175,6 +280,7 @@ export class PayPalGateway implements IPaymentGateway {
     return this.token.value;
   }
 
+  
   private async send(url: string, init: RequestInit): Promise<PayPalReply> {
     try {
       const response = await this.fetcher(url, { ...init, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });

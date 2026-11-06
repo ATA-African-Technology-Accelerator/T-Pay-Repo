@@ -4,6 +4,9 @@ import { PayPalGateway } from '../../src/adapters/paypal/PayPalGateway';
 
 
 
+
+
+
 const BASE_URL = 'https://api-m.sandbox.paypal.com';
 const ORDER_URL = `${BASE_URL}/v2/checkout/orders`;
 const CREATE_INPUT = {
@@ -238,10 +241,163 @@ describe('PayPalGateway', () => {
       expect(headers['PayPal-Request-Id']).toBe('AUTH-1-void');
     });
 
+    it('reports a hold that has really been voided', async () => {
+      route = () => new Response(null, { status: 204 });
+
+      expect(await gateway.voidAuthorization('AUTH-1')).toBe('VOIDED');
+    });
+
     it('treats an already voided authorization as done', async () => {
       route = () => issue('PREVIOUSLY_VOIDED');
 
-      await expect(gateway.voidAuthorization('AUTH-1')).resolves.toBeUndefined();
+      expect(await gateway.voidAuthorization('AUTH-1')).toBe('VOIDED');
+    });
+
+    it('says when PayPal will not void a captured authorization', async () => {
+      route = () => issue('PREVIOUSLY_CAPTURED');
+
+      expect(await gateway.voidAuthorization('AUTH-1')).toBe('ALREADY_CAPTURED');
+    });
+
+    it('fails when PayPal is down', async () => {
+      route = () => json(503, {});
+
+      await expect(gateway.voidAuthorization('AUTH-1')).rejects.toMatchObject({ code: 'PAYPAL_UNAVAILABLE' });
+    });
+  });
+
+  describe('capture', () => {
+    const INPUT = { authorizationId: 'AUTH-1', requestId: 'vch_1-capture', invoiceId: 'vch_1', amountUsdMinor: 133 };
+    const captureReply = (status: string) => json(201, { id: 'CAPTURE-1', status });
+
+    it('captures part of the hold, naming the voucher as the invoice', async () => {
+      route = () => captureReply('COMPLETED');
+
+      await gateway.capture(INPUT);
+
+      const { url, headers, init } = lastCall();
+      expect(url).toBe(`${BASE_URL}/v2/payments/authorizations/AUTH-1/capture`);
+      expect(headers['PayPal-Request-Id']).toBe('vch_1-capture');
+      expect(JSON.parse(init.body as string)).toEqual({
+        amount: { currency_code: 'USD', value: '1.33' },
+        invoice_id: 'vch_1',
+        final_capture: false,
+      });
+    });
+
+    it.each([
+      ['COMPLETED', { outcome: 'COMPLETED', captureId: 'CAPTURE-1' }],
+      ['PENDING', { outcome: 'PENDING', captureId: 'CAPTURE-1' }],
+      ['DECLINED', { outcome: 'BLOCKED', reason: 'CAPTURE_DECLINED' }],
+      ['FAILED', { outcome: 'BLOCKED', reason: 'CAPTURE_FAILED' }],
+    ])('maps capture status %s', async (status, expected) => {
+      route = () => captureReply(status);
+
+      expect(await gateway.capture(INPUT)).toEqual(expected);
+    });
+
+    it.each([
+      'AUTHORIZATION_EXPIRED', 'AUTHORIZATION_VOIDED', 'AUTHORIZATION_DENIED', 'AUTHORIZATION_ALREADY_CAPTURED',
+      'MAX_CAPTURE_AMOUNT_EXCEEDED', 'MAX_CAPTURE_COUNT_EXCEEDED', 'TRANSACTION_REFUSED', 'PAYER_CANNOT_PAY',
+    ])('never retries %s', async (name) => {
+      route = () => issue(name);
+
+      expect(await gateway.capture(INPUT)).toEqual({ outcome: 'BLOCKED', reason: name });
+    });
+
+    it.each([
+      ['a duplicate invoice', () => issue('DUPLICATE_INVOICE_ID')],
+      ['a rate limit', () => json(429, {})],
+      ['a conflict', () => json(409, {})],
+      ['a server error', () => json(500, {})],
+      ['a timeout', () => Promise.reject(new DOMException('timed out', 'TimeoutError'))],
+      ['an unreadable reply', () => new Response('<html>', { status: 200 })],
+    ])('asks for a read-back after %s', async (_name, reply) => {
+      route = reply as Route;
+
+      expect(await gateway.capture(INPUT)).toEqual({ outcome: 'RETRY' });
+    });
+
+    it('blocks any other client error instead of retrying forever', async () => {
+      route = () => json(400, { name: 'INVALID_REQUEST' });
+
+      expect(await gateway.capture(INPUT)).toEqual({ outcome: 'BLOCKED', reason: 'INVALID_REQUEST' });
+    });
+  });
+
+  describe('findCapture', () => {
+    const order = {
+      purchase_units: [
+        {
+          payments: {
+            captures: [
+              { id: 'CAPTURE-0', status: 'COMPLETED', invoice_id: 'vch_0' },
+              { id: 'CAPTURE-1', status: 'COMPLETED', invoice_id: 'vch_1' },
+            ],
+          },
+        },
+      ],
+    };
+
+    it('finds a capture on the order by invoice', async () => {
+      route = () => json(200, order);
+
+      const found = await gateway.findCapture({ orderId: 'ORDER-1', invoiceId: 'vch_1' });
+
+      expect(lastCall().url).toBe(`${ORDER_URL}/ORDER-1`);
+      expect(found).toEqual({ outcome: 'COMPLETED', captureId: 'CAPTURE-1' });
+    });
+
+    it('returns null when no capture exists', async () => {
+      route = () => json(200, order);
+
+      expect(await gateway.findCapture({ orderId: 'ORDER-1', invoiceId: 'vch_9' })).toBeNull();
+    });
+  });
+
+  describe('verifyWebhook', () => {
+    const rawBody = '{"id":"WH-1","event_type":"PAYMENT.CAPTURE.COMPLETED"}';
+    const headers = {
+      'paypal-auth-algo': 'SHA256withRSA',
+      'paypal-cert-url': 'https://api.sandbox.paypal.com/cert',
+      'paypal-transmission-id': 'tx-1',
+      'paypal-transmission-sig': 'sig',
+      'paypal-transmission-time': '2026-11-06T10:00:00Z',
+    };
+    const verified = (status: string) => () => json(200, { verification_status: status });
+    const withWebhook = () => new PayPalGateway(
+      { clientId: 'client', clientSecret: 'secret', baseUrl: BASE_URL, webhookId: 'WEBHOOK-1' },
+      fetchMock,
+    );
+
+    it('asks PayPal to check the original bytes of the event', async () => {
+      route = verified('SUCCESS');
+
+      expect(await withWebhook().verifyWebhook({ headers, rawBody })).toBe(true);
+
+      const { url, init } = lastCall();
+      expect(url).toBe(`${BASE_URL}/v1/notifications/verify-webhook-signature`);
+      expect(init.body).toContain(`"webhook_event":${rawBody}`);
+      expect(JSON.parse(init.body as string)).toMatchObject({
+        auth_algo: 'SHA256withRSA',
+        cert_url: 'https://api.sandbox.paypal.com/cert',
+        transmission_id: 'tx-1',
+        transmission_sig: 'sig',
+        transmission_time: '2026-11-06T10:00:00Z',
+        webhook_id: 'WEBHOOK-1',
+      });
+    });
+
+    it('refuses a failed verification', async () => {
+      route = verified('FAILURE');
+
+      expect(await withWebhook().verifyWebhook({ headers, rawBody })).toBe(false);
+    });
+
+    it('refuses everything when no webhook id is configured', async () => {
+      route = verified('SUCCESS');
+
+      expect(await gateway.verifyWebhook({ headers, rawBody })).toBe(false);
     });
   });
 });
