@@ -7,6 +7,7 @@ import { ProfileController } from './controllers/ProfileController';
 import { TransactionController } from './controllers/TransactionController';
 import { VaultController } from './controllers/VaultController';
 import { VoucherController } from './controllers/VoucherController';
+import { WalletController } from './controllers/WalletController';
 import { authenticate } from './middleware/authenticate';
 import { errorHandler, notFound } from './middleware/errorHandler';
 import { idempotent } from './middleware/idempotent';
@@ -15,11 +16,14 @@ import { createHealthRouter } from './routes/health.routes';
 import { createTransactionRouter } from './routes/transaction.routes';
 import { createVaultRouter } from './routes/vault.routes';
 import { createVoucherRouter } from './routes/voucher.routes';
+import { createWalletRouter } from './routes/wallet.routes';
 import { AuthorizeVault } from './services/AuthorizeVault';
 import { CreateVaultOrder } from './services/CreateVaultOrder';
+import { GetActiveWallet } from './services/GetActiveWallet';
 import { GetCurrentVault } from './services/GetCurrentVault';
 import type {
   IIdempotencyStore, IPaymentGateway, ITransactionRepository, IVaultRepository, IVoucherRepository,
+  IWalletRepository,
 } from './services/ports';
 import { RegisterDevice, type RegisterDeviceDependencies } from './services/RegisterDevice';
 
@@ -32,6 +36,7 @@ export interface AppDependencies extends RegisterDeviceDependencies {
   transactions: ITransactionRepository;
   vaults: IVaultRepository;
   vouchers: IVoucherRepository;
+  wallet: IWalletRepository;
   idempotency: IIdempotencyStore;
   gateway: IPaymentGateway;
   checkDatabase(): Promise<boolean>;
@@ -84,6 +89,14 @@ export function createApp(dependencies: AppDependencies): Express {
     ),
   );
   app.use('/api', createVoucherRouter(new VoucherController(services.submitVoucher, vouchers), requireDevice));
+  app.use(
+    '/api',
+    createWalletRouter(
+      new WalletController(new GetActiveWallet(vouchers), services.withdrawToPayPal),
+      requireDevice,
+      idempotent(idempotency, signer),
+    ),
+  );
   app.post('/api/webhooks/paypal', new PayPalWebhookController(gateway, services.applyPayPalEvent).handle);
   app.use(notFound);
   app.use(errorHandler);

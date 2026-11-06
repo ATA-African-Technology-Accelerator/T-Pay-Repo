@@ -47,7 +47,7 @@ async function defaultStorage(): Promise<Storage> {
 export async function createApiFixture({ databaseIsUp = true, storage }: FixtureOptions = {}) {
   const chosenStorage = storage ?? await defaultStorage();
   const root = await signer.generateKeyPair();
-  const { transactions, vaults, vouchers } = chosenStorage;
+  const { transactions, vaults, vouchers, wallet } = chosenStorage;
   const gateway = new FakePaymentGateway();
   const time = { now: NOW };
 
@@ -101,5 +101,5 @@ export async function createApiFixture({ databaseIsUp = true, storage }: Fixture
     return { ...response.body.data, ...keys } as RegisteredDevice;
   };
 
-  return { app, jobs, root, signer, time, transactions, vaults, vouchers, gateway, registration, registerDevice };
+  return { app, jobs, root, signer, time, transactions, vaults, vouchers, wallet, gateway, registration, registerDevice };
 }

@@ -57,4 +57,18 @@ describe.each(implementations)('$name settlement under load', ({ create }) => {
     expect(new Set(fixture.gateway.captures.map(({ invoiceId }) => invoiceId)).size).toBe(fixture.gateway.captures.length);
     expect((await fixture.vaults.findById(scenario.vaultId))?.status).toBe('BLOCKED');
   });
+
+  it('pays out once when many withdrawals race for one balance', async () => {
+    const fixture = await createApiFixture({ storage });
+    const scenario = await createPaymentScenario(fixture);
+    await scenario.submit(await scenario.voucher(1));
+
+    const responses = await Promise.all(
+      Array.from({ length: 30 }, () =>
+        scenario.post('/api/wallet/withdrawals', scenario.payee, { amountUsdMinor: 100 })),
+    );
+
+    expect(responses.filter(({ status }) => status === 202)).toHaveLength(1);
+    expect(fixture.gateway.payouts).toHaveLength(1);
+  });
 });

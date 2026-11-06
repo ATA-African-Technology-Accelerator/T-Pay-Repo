@@ -1,7 +1,8 @@
 import { ApiError } from '../../src/services/ApiError';
 import type {
   AuthorizeOrderInput, CaptureInput, CaptureResult, CreateOrderInput, FindCaptureInput,
-  IPaymentGateway, PaymentAuthorization, PaymentOrder, VoidResult, WebhookNotification,
+  IPaymentGateway, PaymentAuthorization, PaymentOrder, PayoutInput, PayoutResult, PayoutStatus,
+  VoidResult, WebhookNotification,
 } from '../../src/services/ports';
 
 export interface RecordedCapture extends CaptureInput {
@@ -16,6 +17,9 @@ export class FakePaymentGateway implements IPaymentGateway {
   public readonly captureCalls: CaptureInput[] = [];
   public readonly plannedCaptures: Array<CaptureResult | 'TIMEOUT_AFTER_CAPTURE'> = [];
   public readonly webhooks: WebhookNotification[] = [];
+  public readonly payouts: PayoutInput[] = [];
+  public readonly plannedPayouts: PayoutResult[] = [];
+  public payoutStatus: PayoutStatus = 'PENDING';
   public unavailable = false;
   public webhookIsValid = true;
   public voidResult: VoidResult = 'VOIDED';
@@ -69,6 +73,16 @@ export class FakePaymentGateway implements IPaymentGateway {
     this.assertAvailable();
     this.voidedAuthorizations.push(authorizationId);
     return this.voidResult;
+  }
+
+  public async createPayout(input: PayoutInput): Promise<PayoutResult> {
+    this.payouts.push(input);
+    return this.plannedPayouts.shift() ?? { outcome: 'ACCEPTED', batchId: `BATCH-${this.payouts.length}` };
+  }
+
+  public async getPayoutStatus(): Promise<PayoutStatus> {
+    this.assertAvailable();
+    return this.payoutStatus;
   }
 
   public async verifyWebhook(notification: WebhookNotification): Promise<boolean> {

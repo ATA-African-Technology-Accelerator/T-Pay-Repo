@@ -6,6 +6,7 @@ import { PostgresIdempotencyStore } from '../adapters/persistence/PostgresIdempo
 import { PostgresTransactionRepository } from '../adapters/persistence/PostgresTransactionRepository';
 import { PostgresVaultRepository } from '../adapters/persistence/PostgresVaultRepository';
 import { PostgresVoucherRepository } from '../adapters/persistence/PostgresVoucherRepository';
+import { PostgresWalletRepository } from '../adapters/persistence/PostgresWalletRepository';
 import { NodeRandom } from '../adapters/system/NodeRandom';
 import { SystemClock } from '../adapters/system/SystemClock';
 import type { AppDependencies } from '../app';
@@ -32,6 +33,7 @@ export function createDependencies(env: NodeJS.ProcessEnv): AppDependencies {
     transactions: new PostgresTransactionRepository(pool),
     vaults: new PostgresVaultRepository(pool),
     vouchers: new PostgresVoucherRepository(pool),
+    wallet: new PostgresWalletRepository(pool),
     idempotency: new PostgresIdempotencyStore(pool),
     gateway: new PayPalGateway({
       clientId: required(env, 'PAYPAL_CLIENT_ID'),

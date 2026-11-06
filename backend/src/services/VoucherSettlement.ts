@@ -3,6 +3,7 @@ import type {
   AlertType, CaptureResult, IPaymentGateway, IVaultRepository, IVoucherRepository, TransactionEvent,
   Vault, VaultSession, Voucher,
 } from './ports';
+import { backoffMs } from './backoff';
 import type { VaultRelease } from './VaultRelease';
 import { isInProgress } from './vaultView';
 
@@ -10,9 +11,6 @@ import { isInProgress } from './vaultView';
 
 
 const LEASE_MS = 60_000;
-const BASE_BACKOFF_MS = 30_000;
-const MAX_BACKOFF_MS = 15 * 60_000;
-const MAX_JITTER = 0.2;
 const MAX_ATTEMPTS = 8;
 
 
@@ -23,10 +21,6 @@ export interface VoucherSettlementDependencies {
   clock: IClock;
   random: IRandom;
 }
-
-
-export const backoffMs = (attempts: number) =>
-  Math.min(BASE_BACKOFF_MS * 2 ** (attempts - 1), MAX_BACKOFF_MS) * (1 + Math.random() * MAX_JITTER);
 
 
 export class VoucherSettlement {
@@ -205,6 +199,7 @@ export class VoucherSettlement {
       amountUsdMinor: settled.amountUsdMinor,
       amountNgnMinor: settled.amountNgnMinor,
       voucherId,
+      withdrawalId: null,
       paypalCaptureId: captureId,
       createdAt: now,
     });
@@ -257,6 +252,7 @@ export class VoucherSettlement {
       amountUsdMinor: reversed.amountUsdMinor,
       amountNgnMinor: reversed.amountNgnMinor,
       voucherId,
+      withdrawalId: null,
       paypalCaptureId: reversed.paypalCaptureId,
       createdAt: now,
     });

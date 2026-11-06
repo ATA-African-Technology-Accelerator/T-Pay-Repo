@@ -122,6 +122,11 @@ export const listVouchersQuerySchema = z
   .strict();
 
 
+export const withdrawSchema = z
+  .object({ amountUsdMinor: minorUnits.positive() })
+  .strict();
+
+
 export const paypalWebhookSchema = z.looseObject({
   id: requiredText,
   event_type: requiredText,
