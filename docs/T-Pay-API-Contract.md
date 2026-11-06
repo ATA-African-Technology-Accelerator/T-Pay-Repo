@@ -62,7 +62,7 @@ Three endpoints have no screen, and they are the only exceptions:
 | :--- | :--- |
 | Base path | All endpoints sit under `/api`, for example `POST /api/vouchers`. |
 | Authentication | `Authorization: Bearer <deviceToken>`, except registration, PayPal callbacks and health. |
-| Idempotency | Mutating app calls send `Idempotency-Key: <uuid>`. Voucher submission is idempotent on vault and sequence instead. |
+| Idempotency | Mutating app calls send `Idempotency-Key: <uuid>`. A repeat with the same key and body returns the first success. The same key with a different body, or while the first call is still running, returns `IDEMPOTENCY_CONFLICT`. A failed call can be retried with the same key. Voucher submission is idempotent on vault and sequence instead. |
 | Naira | `amountNgnMinor` is an integer in kobo. |
 | US dollars | `amountUsdMinor` and related fields are integers in cents. |
 | FX rate | `fxRate` is a decimal string of naira per dollar, for example `"1500.00"`. Conversion uses one function in `shared/`. |
@@ -116,7 +116,7 @@ Errors: `INVALID_SIGNATURE`, `VALIDATION_FAILED`.
 
 ### 4.2 POST /vaults
 
-Called by ACT-04. Customer only.
+Called by ACT-04. `durationHours` is a whole number from 1 to 24. If the device has an unfinished order that was never approved, this call replaces it.
 
 ```json
 { "amountNgnMinor": 1000000, "durationHours": 24 }
@@ -137,7 +137,7 @@ Response `201`:
 }
 ```
 
-Errors: `ACTIVE_VAULT_EXISTS`, `VALIDATION_FAILED`, `PAYPAL_UNAVAILABLE`.
+Errors: `ACTIVE_VAULT_EXISTS`, `VALIDATION_FAILED`, `IDEMPOTENCY_CONFLICT`, `PAYPAL_UNAVAILABLE`.
 
 ### 4.3 GET /paypal/return
 
@@ -148,6 +148,8 @@ tpay://vault/return?vaultId=vlt_123&outcome=approved
 tpay://vault/return?vaultId=vlt_123&outcome=cancelled
 ```
 
+A cancelled return closes the pending vault, so the person can start again.
+
 ### 4.4 POST /vaults/{id}/authorize
 
 Called by ACT-05 after the deep link returns with `approved`. The body is empty. Response `200`:
@@ -156,11 +158,13 @@ Called by ACT-05 after the deep link returns with `approved`. The body is empty.
 { "data": { "vault": "Vault object", "vaultCertificate": "signed certificate, section 5" } }
 ```
 
-Errors: `VAULT_NOT_FOUND`, `ORDER_NOT_APPROVED`, `PAYPAL_UNAVAILABLE`.
+Repeating this call for a locked vault returns the same vault with a valid certificate. PayPal is not called twice.
+
+Errors: `VAULT_NOT_FOUND`, `ORDER_NOT_APPROVED`, `IDEMPOTENCY_CONFLICT`, `PAYPAL_UNAVAILABLE`.
 
 ### 4.5 GET /vaults/current
 
-Called by ACT-03. Response `200`, with `null` when the device has no open vault:
+Called by ACT-03. Response `200`, with `null` when the device has no locked vault. A vault waiting for PayPal approval counts as not locked:
 
 ```json
 {
@@ -475,6 +479,7 @@ The app shows translated text for each code. These never come from the backend.
 | `VOUCHER_NOT_FOUND` | 404 | Keep the local record and show pending. |
 | `ACTIVE_VAULT_EXISTS` | 409 | Open the existing vault. |
 | `ORDER_NOT_APPROVED` | 409 | Offer to return to PayPal. |
+| `IDEMPOTENCY_CONFLICT` | 409 | Retry after a short wait. If it persists, refresh the state first and use a new key. |
 | `NOT_A_PARTY` | 403 | Stop retrying and log the failure. |
 | `INVALID_SIGNATURE` | 422 | Stop retrying and show rejected. |
 | `INVALID_CERTIFICATE` | 422 | Stop retrying and show rejected. |
