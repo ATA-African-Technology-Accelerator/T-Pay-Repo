@@ -37,6 +37,7 @@ You own the Android app in `frontend/`. A customer and a merchant use it to comp
 | Connectivity | `@react-native-community/netinfo` |
 | Voice | `expo-audio`, `expo-speech`, `expo-speech-recognition` |
 | Tests | Jest with React Native Testing Library |
+| Daily login | `expo-local-authentication` with the shared `AppLock` use case |
 
 Do not add a state library or UI kit unless a ticket needs one. Keep the dependency list small.
 
@@ -99,8 +100,8 @@ The IDs match the API contract. Each activity must show loading, success, empty,
 
 | ID | Screen and trigger | App steps | Network | Result |
 | :--- | :--- | :--- | :--- | :--- |
-| ACT-01 | Splash on app open | Load or create the key, load identity, renew the certificate if near expiry and online | `POST /devices/register` for renewal only | Go to onboarding or home |
-| ACT-02 | Choose language, role and name | Create proof, register, store token and certificate | `POST /devices/register` | Go to home with Tier B badge |
+| ACT-01 | Splash on app open | Load the key and identity, then unlock with PIN or fingerprint; renew the certificate if near expiry and online | `POST /devices/register` for renewal only | Go to onboarding or home |
+| ACT-02 | Language, name, PayPal email and PIN | Create the PIN, create proof, register, store token and certificate | `POST /devices/register` | Go to home with Tier B badge |
 | ACT-03 | Home | Show local vault, reserved and remaining amounts; refresh if online | `GET /vaults/current` | Offline home still works |
 
 ### 5.2 Locking a vault
@@ -130,8 +131,8 @@ If delivery fails, resend the same voucher bytes. Never sign the same payment ag
 | ACT-10 | Background, on connectivity or app open | Upload unsettled vouchers, then read updates | `POST /vouchers`, `GET /vouchers` | Local status updated with no tap |
 | ACT-11 | Transaction list and detail | Read local data, refresh detail and history if online | `GET /vouchers/{id}`, `GET /transactions` | Shows status and capture ID |
 | ACT-12 | Customer melts the vault | Stop signing, create spend statement, submit | `POST /vaults/{id}/melt` | Released now, or shows scheduled release and blocking voucher |
-| ACT-13 | Merchant ledger | Read balance and entries | `GET /merchants/me/ledger` | Shows credits linked to captures |
-| ACT-14 | Merchant withdraws (P1) | Confirm amount and submit | `POST /merchants/me/withdrawals` | Pending withdrawal |
+| ACT-13 | Active wallet | Read balance and entries | `GET /wallet` | Shows collected money linked to captures |
+| ACT-14 | Withdraw to PayPal | Confirm amount and submit | `POST /wallet/withdrawals` | Pending withdrawal |
 
 Only a backend response may set `SETTLED`. The phone must never decide this itself.
 
@@ -162,6 +163,8 @@ The backend side publishes these interfaces in `shared/`. You provide the Androi
 | `ITPayApi` | `HttpTPayApi` |
 | `IConnectivity` | `NetInfoConnectivity` |
 | `ISpeechInput` and `ISpeechOutput` | Expo speech adapters |
+| `IPinStore` | `SecureStorePinStore` |
+| `IBiometricUnlock` | `ExpoBiometricUnlock` |
 
 ## 7. Tickets
 
@@ -178,11 +181,11 @@ Each ticket needs a branch, a pull request, and the activity ID in its title.
 | FE-07 | ACT-03 to ACT-05, with PayPal approval and deep link | BE-06 | 7 Nov |
 | FE-08 | Test Nearby for up to half a day; keep QR if it fails | FE-06 | 7 Nov |
 | FE-09 | ACT-10 sync coordinator | BE-08 | 8 Nov |
-| FE-10 | ACT-11, ACT-12 and ACT-13 | BE-07, BE-09 | 9 Nov |
+| FE-10 | ACT-11, ACT-12 and ACT-13, ACT-14 | BE-07, BE-09, BE-10 | 9 Nov |
 | FE-11 | ACT-15 with online and offline paths | BE-11 | 9 Nov |
 | FE-12 | Five-language strings, accessibility, and every empty, error and blocked state | Native-speaker reviewers | 10 Nov |
 | FE-13 | Run the two-phone checklist, kill test and signed APK build | All P0 | 10–11 Nov |
-| FE-14 | ACT-14 and ACT-17 if all P0 work is verified | BE-10 | 10 Nov |
+| FE-14 | ACT-17 if all P0 work is verified | NOne | 10 Nov |
 
 Until an endpoint is live, use a fake `ITPayApi` in tests or a development build only. Fakes never ship in the production path.
 

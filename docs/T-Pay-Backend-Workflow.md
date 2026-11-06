@@ -102,8 +102,8 @@ The backend is complete for an activity only when the listed endpoint passes its
 | `GET /vouchers` | ACT-10 | `VoucherController.list` | `ListVouchers` | FR-22, FR-23 | BE-08 |
 | `GET /vouchers/{id}` | ACT-11 | `VoucherController.get` | `GetVoucher` | FR-20 | BE-08 |
 | `POST /vaults/{id}/melt` | ACT-12 | `VaultController.melt` | `MeltVault` | FR-09 | BE-07 |
-| `GET /merchants/me/ledger` | ACT-13 | `MerchantController.ledger` | `GetMerchantLedger` | FR-40 | BE-09 |
-| `POST /merchants/me/withdrawals` | ACT-14 | `MerchantController.withdraw` | `WithdrawToPayPal` | FR-41 | BE-10 |
+| `GET /wallet` | ACT-13 | `WalletController.get` | `GetActiveWallet` | FR-40 | BE-09 |
+| `POST /wallet/withdrawals` | ACT-14 | `WalletController.withdraw` | `WithdrawToPayPal` | FR-41 | BE-10 |
 | `POST /assistant/interpret` | ACT-15 | `AssistantController.interpret` | `InterpretRequest` | FR-32, FR-46 | BE-11 |
 | `POST /webhooks/paypal` | PayPal | `PayPalWebhookController.handle` | `ApplyPayPalEvent` | FR-21 | BE-08 |
 | `GET /health` | Operators | `HealthController.check` | `CheckHealth` | NFR-10 | BE-01 |
@@ -117,7 +117,7 @@ Offline activities ACT-01, ACT-06 to ACT-09, ACT-16 and ACT-17 have no endpoint.
 
 | Table | Key fields | Important constraint |
 | :--- | :--- | :--- |
-| `devices` | `id`, `key_id`, `public_key`, `role`, `display_name`, `payout_email`, `revoked_at` | Unique `public_key` |
+| `devices` | `id`, `key_id`, `public_key`, `display_name`, `payout_email`, `revoked_at` | Unique `public_key` |
 | `device_tokens` | `device_id`, `token_hash`, `created_at` | Store only a hash |
 | `vaults` | `id`, `device_id`, `paypal_order_id`, `paypal_authorization_id`, amounts, `fx_rate`, `status`, `spend_by`, `settle_by` | One open vault per device |
 | `vouchers` | `id`, `vault_id`, `sequence`, `payload_hash`, `payload`, `payee_key_id`, amounts, `status`, `paypal_capture_id` | Unique `vault_id, sequence` |
@@ -180,8 +180,8 @@ Each ticket needs a branch, a pull request, tests, and the activity or endpoint 
 | BE-06 | PayPal sandbox proof, vault creation, return page, authorisation and current vault endpoints | BE-05 | 6–7 Nov |
 | BE-07 | Melt, spend statement, release job and hold rules | BE-06 | 7 Nov |
 | BE-08 | Voucher submission, settlement, retries, conflict handling, webhooks and list endpoints | BE-06 | 8 Nov |
-| BE-09 | Merchant ledger endpoint | BE-08 | 9 Nov |
-| BE-10 | Payouts endpoint, only if the sandbox proof passes | BE-09 | 9 Nov |
+| BE-09 | Active wallet endpoint | BE-08 | 9 Nov |
+| BE-10 | Withdraw to PayPal | BE-09 | 9 Nov |
 | BE-11 | Gemini interpret endpoint and prompt-injection tests | BE-02 | 9 Nov |
 | BE-12 | Concurrency tests, Postman collection, logs and README setup | BE-08 | 10 Nov |
 | BE-13 | Final Render deployment, sandbox data, judge instructions and submission support | All P0 | 10–11 Nov |
