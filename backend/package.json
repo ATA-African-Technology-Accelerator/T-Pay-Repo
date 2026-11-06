@@ -10,6 +10,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "keys:root": "tsx scripts/generateRootKey.ts",
+    "paypal:proof": "tsx scripts/paypalProof.ts",
     "db:up": "docker compose up -d --wait",
     "db:migrate": "tsx scripts/migrate.ts",
     "test:db": "TEST_DATABASE_URL=postgres://tpay:tpay@localhost:5433/tpay vitest run"
