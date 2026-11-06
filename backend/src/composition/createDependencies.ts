@@ -5,6 +5,7 @@ import { PostgresDeviceRepository } from '../adapters/persistence/PostgresDevice
 import { PostgresIdempotencyStore } from '../adapters/persistence/PostgresIdempotencyStore';
 import { PostgresTransactionRepository } from '../adapters/persistence/PostgresTransactionRepository';
 import { PostgresVaultRepository } from '../adapters/persistence/PostgresVaultRepository';
+import { PostgresVoucherRepository } from '../adapters/persistence/PostgresVoucherRepository';
 import { NodeRandom } from '../adapters/system/NodeRandom';
 import { SystemClock } from '../adapters/system/SystemClock';
 import type { AppDependencies } from '../app';
@@ -30,11 +31,13 @@ export function createDependencies(env: NodeJS.ProcessEnv): AppDependencies {
     devices: new PostgresDeviceRepository(pool),
     transactions: new PostgresTransactionRepository(pool),
     vaults: new PostgresVaultRepository(pool),
+    vouchers: new PostgresVoucherRepository(pool),
     idempotency: new PostgresIdempotencyStore(pool),
     gateway: new PayPalGateway({
       clientId: required(env, 'PAYPAL_CLIENT_ID'),
       clientSecret: required(env, 'PAYPAL_CLIENT_SECRET'),
       baseUrl: paypalBaseUrl,
+      ...(env.PAYPAL_WEBHOOK_ID ? { webhookId: env.PAYPAL_WEBHOOK_ID } : {}),
     }),
     checkDatabase: () => isDatabaseReachable(pool),
     paypalMode: paypalBaseUrl.includes('sandbox') ? 'sandbox' : 'live',
@@ -44,5 +47,6 @@ export function createDependencies(env: NodeJS.ProcessEnv): AppDependencies {
     random: new NodeRandom(),
     clock: new SystemClock(),
     rootPrivateKey: required(env, 'ROOT_PRIVATE_KEY'),
+    rootPublicKey: required(env, 'ROOT_PUBLIC_KEY'),
   };
 }

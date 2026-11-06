@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import { createApp } from './app';
+import { createBackgroundJobs } from './composition/createBackgroundJobs';
 import { createDependencies } from './composition/createDependencies';
 
 
@@ -9,6 +10,9 @@ const port = Number(process.env.PORT ?? DEFAULT_PORT);
 
 
 
-createApp(createDependencies(process.env)).listen(port, () => {
+const dependencies = createDependencies(process.env);
+
+createApp(dependencies).listen(port, () => {
   console.log(`T-Pay backend listening on port ${port}`);
+  createBackgroundJobs(dependencies).start();
 });
