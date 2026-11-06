@@ -167,6 +167,21 @@ describe('offline payment', () => {
   });
 
   describe('acceptVoucher', () => {
+    it('refuses a voucher whose dollar amount does not match the rate', async () => {
+      const issued = await issue();
+      const { voucher } = issued.getValue();
+      const cheap = await signMessage(
+        MESSAGE_PREFIX.VOUCHER,
+        { ...voucher.payload, amountUsdMinor: 1 },
+        fixture.customerKeys.privateKey,
+        signer,
+      );
+
+      const result = await accept(issued, { voucher: cheap });
+
+      expect(result.error).toBe(REFUSAL.REQUEST_MISMATCH);
+    });
+
     it('accepts a valid voucher and returns a signed receipt', async () => {
       const voucher = await issue();
       const receipt = (await accept(voucher)).getValue();

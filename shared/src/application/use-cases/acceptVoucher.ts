@@ -5,8 +5,10 @@ import type {
 } from '../../contracts/messages';
 import { REFUSAL } from '../../contracts/refusals';
 import { canonicalJson } from '../../domain/canonicalJson';
+import { convertNgnToUsd } from '../../domain/convertNgnToUsd';
 import { verifyDeviceCertificate, verifyVaultCertificate } from '../../domain/certificates';
 import { signMessage, verifyMessage } from '../../domain/signedMessages';
+import { Money } from '../../shared/domain/Money';
 import { Result } from '../../shared/domain/Result';
 import type { ISigner } from '../ports/crypto';
 import type { IClock } from '../ports/system';
@@ -87,6 +89,7 @@ function findVoucherRefusal(
   if (payload.requestNonce !== request.nonce || payload.amountNgnMinor !== request.amountNgnMinor) {
     return REFUSAL.REQUEST_MISMATCH;
   }
+  if (!matchesRate(payload, vault.fxRate)) return REFUSAL.REQUEST_MISMATCH;
   if (new Date(vault.spendBy) <= now || new Date(payload.expiresAt) <= now) {
     return REFUSAL.VAULT_EXPIRED;
   }
@@ -95,4 +98,12 @@ function findVoucherRefusal(
   }
   if (alreadySeen) return REFUSAL.DUPLICATE_VOUCHER;
   return null;
+}
+
+
+function matchesRate(payload: VoucherPayload, fxRate: string): boolean {
+  const amount = Money.fromMinor(payload.amountNgnMinor, 'NGN');
+  if (amount.isFailure) return false;
+  const converted = convertNgnToUsd(amount.getValue(), fxRate);
+  return converted.isSuccess && converted.getValue().minor === payload.amountUsdMinor;
 }
