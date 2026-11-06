@@ -30,8 +30,8 @@ P0 must work in the demo. P1 follows only after every P0 activity is verified.
 
 | ID | Activity | Who | Network | Endpoint | PRD | Priority |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| ACT-01 | App start and identity check | Both | Offline first | `POST /devices/register` only to renew a certificate | FR-01, FR-05, FR-36 | P0 |
-| ACT-02 | Language, role and device registration | Both | Online | `POST /devices/register` | FR-02, FR-36, FR-33 | P0 |
+| ACT-01 | App start, identity check and unlock | Both | Offline first | `POST /devices/register` only to renew a certificate | FR-01, FR-05, FR-36 | P0 |
+| ACT-02 | Language, details, PIN and registration | Both | Online | `POST /devices/register` | FR-02, FR-36, FR-33 | P0 |
 | ACT-03 | Home and vault summary | Both | Offline first | `GET /vaults/current` when online | FR-08, FR-35 | P0 |
 | ACT-04 | Choose vault amount and duration | Customer | Online | `POST /vaults` | FR-06, FR-10 | P0 |
 | ACT-05 | PayPal approval and return | Customer | Online | `POST /vaults/{id}/authorize` | FR-06, FR-37, FR-43 | P0 |
@@ -42,8 +42,8 @@ P0 must work in the demo. P1 follows only after every P0 activity is verified.
 | ACT-10 | Background sync and settlement | Both | Reconnect | `POST /vouchers`, `GET /vouchers` | FR-15, FR-23, FR-24, FR-44 | P0 |
 | ACT-11 | Transaction list and detail | Both | Offline first | `GET /vouchers/{id}`, `GET /transactions` when online | FR-20, FR-22 | P0 |
 | ACT-12 | Melt vault | Customer | Online | `POST /vaults/{id}/melt` | FR-09, FR-39 | P0 |
-| ACT-13 | Merchant ledger | Merchant | Online | `GET /merchants/me/ledger` | FR-40 | P0 |
-| ACT-14 | Withdraw to PayPal | Merchant | Online | `POST /merchants/me/withdrawals` | FR-41 | P1 |
+| ACT-13 | Active wallet | Both | Online | `GET /wallet` | FR-40 | P0 |
+| ACT-14 | Withdraw to PayPal | Both | Online | `POST /wallet/withdrawals` | FR-41 | P0 |
 | ACT-15 | Voice assistant | Both | Online, with offline fallback | `POST /assistant/interpret` | FR-31 to FR-34, FR-46 | P0 |
 | ACT-16 | Settings, profile and device trust | Both | Offline first | `GET /profile`, `PATCH /profile` when online | FR-04, FR-33 | P0 |
 | ACT-17 | Voice sale and stock | Merchant | Offline | None | FR-26, FR-27 | P1 |
@@ -80,7 +80,6 @@ Three endpoints have no screen, and they are the only exceptions:
 | `VoucherStatus` on the phone only | `DRAFT`, `SIGNED`, `DELIVERED` |
 | `VoucherStatus` on both sides | `ACKNOWLEDGED`, `SETTLING`, `RETRYABLE_FAILURE` |
 | Terminal `VoucherStatus` | `SETTLED`, `SETTLEMENT_BLOCKED`, `REJECTED_CONFLICT`, `REJECTED_OVERSPEND` |
-| `DeviceRole` | `CUSTOMER`, `MERCHANT` |
 | `Language` | `en`, `pcm`, `yo`, `ig`, `ha` |
 
 ## 4. Endpoints
@@ -93,9 +92,8 @@ Called by ACT-02, and again by ACT-01 when the device certificate is near expiry
 {
   "publicKey": "base64url",
   "displayName": "Mama Nkechi Provisions",
-  "role": "MERCHANT",
   "language": "pcm",
-  "payoutEmail": "merchant-sandbox@example.com",
+  "payoutEmail": " `payoutEmail` is required",
   "proof": "base64url signature over the other fields"
 }
 ```
@@ -271,20 +269,23 @@ Called by ACT-10 after each submission pass. Query: `since` is an optional curso
 
 Called by ACT-11. Returns one list item. Errors: `VOUCHER_NOT_FOUND`.
 
-### 4.10 GET /merchants/me/ledger
+### 4.10 GET /wallet
 
-Called by ACT-13. Merchant only.
+Called by ACT-13. Returns collected money. Vault funds and PayPal account balances aren't included.
 
 ```json
 {
   "data": {
     "balanceUsdMinor": 133,
+    "balanceNgnMinor": 200000,
     "pendingNgnMinor": 0,
+    "payoutEmail": "user-sandbox@example.com",
     "entries": [
       {
         "entryId": "led_1",
         "type": "CREDIT",
         "amountUsdMinor": 133,
+        "amountNgnMinor": 200000,
         "voucherId": "vch_456",
         "paypalCaptureId": "SANDBOX-CAPTURE",
         "createdAt": "2026-11-08T12:00:00Z"
@@ -294,9 +295,9 @@ Called by ACT-13. Merchant only.
 }
 ```
 
-### 4.11 POST /merchants/me/withdrawals
+### 4.11 POST /wallet/withdrawals
 
-Called by ACT-14. Merchant only. Priority P1.
+Called by ACT-14. Sends collected money to the account's PayPal email.
 
 ```json
 { "amountUsdMinor": 133 }
@@ -310,6 +311,8 @@ Response `202`:
 
 Errors: `INSUFFICIENT_BALANCE`, `PAYPAL_UNAVAILABLE`.
 
+
+
 ### 4.12 POST /assistant/interpret
 
 Called by ACT-15. Exactly one of `text` or `audioBase64` is present. The app never sends keys, tokens or signed data.
@@ -320,7 +323,7 @@ Called by ACT-15. Exactly one of `text` or `audioBase64` is present. The app nev
   "audioBase64": null,
   "audioMimeType": null,
   "language": "pcm",
-  "context": { "role": "MERCHANT", "remainingNgnMinor": 800000 }
+  "context": { "remainingNgnMinor": 800000 }
 }
 ```
 
@@ -364,7 +367,6 @@ Called by ACT-16. Response `200`:
   "data": {
     "deviceId": "dev_123",
     "displayName": "Mama Nkechi Provisions",
-    "role": "MERCHANT",
     "language": "pcm",
     "payoutEmail": "merchant-sandbox@example.com",
     "assuranceTier": "B",
@@ -375,7 +377,7 @@ Called by ACT-16. Response `200`:
 
 ### 4.16 PATCH /profile
 
-Called by ACT-16. All fields are optional. The role cannot change.
+Called by ACT-16. All fields are optional.
 
 ```json
 { "displayName": "Mama Nkechi Stores", "language": "yo", "payoutEmail": "merchant-sandbox@example.com" }
@@ -431,7 +433,7 @@ These are signed objects carried between phones and later to the backend. They a
 
 | Type | Signed by | Prefix | Payload fields |
 | :--- | :--- | :--- | :--- |
-| Device certificate | Backend | `TPAY-DEVICE-CERT-V1` | `deviceId`, `keyId`, `publicKey`, `displayName`, `role`, `expiresAt` |
+| Device certificate | Backend | `TPAY-DEVICE-CERT-V1` | `deviceId`, `keyId`, `publicKey`, `displayName`, `expiresAt` |
 | Vault certificate | Backend | `TPAY-VAULT-CERT-V1` | `vaultId`, `keyId`, `authorisedUsdMinor`, `amountNgnMinor`, `fxRate`, `spendBy`, `settleBy` |
 | Payment request | Merchant | `TPAY-REQUEST-V1` | `requestId`, `merchantKeyId`, `amountNgnMinor`, `nonce`, `expiresAt`, plus the merchant device certificate |
 | Voucher | Customer | `TPAY-VOUCHER-V1` | `vaultId`, `keyId`, `deviceId`, `sequence`, `amountNgnMinor`, `amountUsdMinor`, `fxRate`, `payeeKeyId`, `requestNonce`, `issuedAt`, `expiresAt` |
@@ -457,6 +459,7 @@ The app shows translated text for each code. These never come from the backend.
 | `INSUFFICIENT_VAULT_CAPACITY` | The vault doesn't have enough left |
 | `WRONG_PAYEE` | The voucher is for another merchant |
 | `DUPLICATE_VOUCHER` | This merchant already accepted this voucher |
+| `SELF_PAYMENT` | A person can't pay their own account |
 
 
 
@@ -467,7 +470,6 @@ The app shows translated text for each code. These never come from the backend.
 | :--- | :--- | :--- |
 | `VALIDATION_FAILED` | 400 | Show the field problem. This is a bug if the UI allowed it. |
 | `UNAUTHENTICATED` | 401 | Re-register, then repeat the action once. |
-| `FORBIDDEN_ROLE` | 403 | Hide the action. This is a bug if the UI allowed it. |
 | `DEVICE_REVOKED` | 403 | Stop signing and start ACT-02. |
 | `VAULT_NOT_FOUND` | 404 | Refresh the home screen. |
 | `VOUCHER_NOT_FOUND` | 404 | Keep the local record and show pending. |
@@ -482,7 +484,7 @@ The app shows translated text for each code. These never come from the backend.
 | `PAYPAL_UNAVAILABLE` | 503 | Offer retry and keep local data. |
 | `AI_UNAVAILABLE` | 503 | Open the offline assistant path. |
 | `ROUTE_NOT_FOUND` | 404 | This is a bug. Log it and show a general error. |
-| `INTERNAL_ERROR` | 500 | Offer retry and keep local data. |
+| `INTERNAL_SERVER_ERROR` | 500 | Offer retry and keep local data. |
 ## 7. Change control
 
 1. Open a pull request against this document first.
