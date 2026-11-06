@@ -14,6 +14,7 @@ export function createVaultRouter(
   router.post('/vaults', authenticate, idempotent, vaults.create);
   router.get('/vaults/current', authenticate, vaults.current);
   router.post('/vaults/:id/authorize', authenticate, idempotent, vaults.authorize);
+  router.post('/vaults/:id/melt', authenticate, idempotent, vaults.melt);
 
   return router;
 }
