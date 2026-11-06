@@ -1,6 +1,5 @@
 import request from 'supertest';
 import type { Language } from '@tpay/shared/contracts/statuses';
-import type { DeviceRole } from '@tpay/shared/contracts/statuses';
 import { MESSAGE_PREFIX } from '@tpay/shared/contracts/messages';
 import type { RegistrationProofPayload } from '@tpay/shared/contracts/messages';
 import { signingInput } from '@tpay/shared/domain/canonicalJson';
@@ -33,7 +32,6 @@ export async function createApiFixture() {
     const payload: RegistrationProofPayload = {
       publicKey: keys.publicKey,
       displayName: 'Mama Nkechi Provisions',
-      role: 'MERCHANT' as DeviceRole,
       language: 'pcm' as Language,
       payoutEmail: 'merchant-sandbox@example.com',
       ...overrides,

@@ -16,6 +16,7 @@ describe('POST /api/devices/register', () => {
     fixture = await createApiFixture();
   });
 
+  
   it('registers a device and issues a certificate the phone can verify', async () => {
     const response = await register(await fixture.registration());
 
@@ -24,11 +25,11 @@ describe('POST /api/devices/register', () => {
 
     const certificate = await verifyDeviceCertificate(
       response.body.data.deviceCertificate,
-      'MERCHANT',
       { rootPublicKey: fixture.root.publicKey, now: NOW, signer: fixture.signer },
     );
     expect(certificate.isSuccess).toBe(true);
   });
+
 
   it('returns the same identity for a known key', async () => {
     const body = await fixture.registration();
@@ -40,6 +41,7 @@ describe('POST /api/devices/register', () => {
     expect(second.body.data.keyId).toBe(first.body.data.keyId);
   });
 
+
   it('rejects a proof signed by a different key', async () => {
     const body = await fixture.registration();
     const other = await fixture.registration();
@@ -49,20 +51,22 @@ describe('POST /api/devices/register', () => {
     expect(response.body.error.code).toBe('INVALID_SIGNATURE');
   });
 
-  it('requires a payout email for a merchant', async () => {
-    const response = await register(await fixture.registration({ payoutEmail: null }));
+
+  it('requires a payout email', async () => {
+    const response = await register({ ...(await fixture.registration()), payoutEmail: undefined });
 
     expect(response.status).toBe(400);
     expect(response.body.error.code).toBe('VALIDATION_FAILED');
   });
 
-  it('lets a customer register without a payout email', async () => {
-    const response = await register(
-      await fixture.registration({ role: 'CUSTOMER', payoutEmail: null }),
-    );
 
-    expect(response.status).toBe(201);
+  it('no longer accepts a role', async () => {
+    const response = await register({ ...(await fixture.registration()), role: 'MERCHANT' });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error.code).toBe('VALIDATION_FAILED');
   });
+
 
   it('rejects an unsupported language', async () => {
     const body = await fixture.registration();

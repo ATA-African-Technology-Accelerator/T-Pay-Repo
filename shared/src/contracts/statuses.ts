@@ -12,6 +12,4 @@ export type TerminalVoucherStatus =
 
 export type VoucherStatus = LocalVoucherStatus | SharedVoucherStatus | TerminalVoucherStatus;
 
-export type DeviceRole = 'CUSTOMER' | 'MERCHANT';
-
 export type Language = 'en' | 'pcm' | 'yo' | 'ig' | 'ha';

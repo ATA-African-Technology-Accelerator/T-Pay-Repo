@@ -56,6 +56,30 @@ describe('offline payment', () => {
       deps,
     );
 
+  const reversedPayment = async () => {
+    const { payload } = await fixture.paymentRequest();
+    return {
+      request: await signMessage(
+        MESSAGE_PREFIX.PAYMENT_REQUEST,
+        {
+          ...payload,
+          merchantKeyId: 'key_customer',
+          merchantCertificate: fixture.customerCertificate,
+        },
+        fixture.customerKeys.privateKey,
+        signer,
+      ),
+      vaultCertificate: await signMessage(
+        MESSAGE_PREFIX.VAULT_CERTIFICATE,
+        { ...fixture.vaultPayload, keyId: 'key_merchant' },
+        fixture.root.privateKey,
+        signer,
+      ),
+    };
+  };
+
+
+
   describe('issueVoucher', () => {
     it('creates a signed voucher and reserves capacity', async () => {
       const result = await issue();
@@ -80,6 +104,33 @@ describe('offline payment', () => {
       expect((await issue({ capacity: capacity(100) })).error).toBe(
         REFUSAL.INSUFFICIENT_VAULT_CAPACITY,
       );
+    });
+
+    it('lets the same account collect and pay', async () => {
+      const { request, vaultCertificate } = await reversedPayment();
+
+      const voucher = await issue({
+        request,
+        vaultCertificate,
+        customerDeviceId: 'dev_merchant',
+        customerKeyId: 'key_merchant',
+        customerPrivateKey: fixture.merchantKeys.privateKey,
+      });
+
+      expect(voucher.isSuccess).toBe(true);
+    });
+
+    it('refuses a payment to the same account', async () => {
+      const { vaultCertificate } = await reversedPayment();
+
+      const voucher = await issue({
+        vaultCertificate,
+        customerDeviceId: 'dev_merchant',
+        customerKeyId: 'key_merchant',
+        customerPrivateKey: fixture.merchantKeys.privateKey,
+      });
+
+      expect(voucher.error).toBe(REFUSAL.SELF_PAYMENT);
     });
 
     it('refuses a merchant certificate from an unknown issuer', async () => {
@@ -159,6 +210,21 @@ describe('offline payment', () => {
 
       expect((await accept(voucher, { vaultCertificate: other })).error).toBe(
         REFUSAL.INVALID_CERTIFICATE,
+      );
+    });
+
+
+    it('rejects a voucher paying its own signer', async () => {
+      const issued = await issue();
+      const voucher = await signMessage(
+        MESSAGE_PREFIX.VOUCHER,
+        { ...issued.getValue().voucher.payload, payeeKeyId: 'key_customer' },
+        fixture.customerKeys.privateKey,
+        signer,
+      );
+
+      expect((await accept(issued, { voucher, merchantKeyId: 'key_customer' })).error).toBe(
+        REFUSAL.SELF_PAYMENT,
       );
     });
 

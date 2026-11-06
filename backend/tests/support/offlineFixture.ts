@@ -34,7 +34,6 @@ export async function createOfflineFixture() {
     keyId: 'key_customer',
     publicKey: customerKeys.publicKey,
     displayName: 'Customer',
-    role: 'CUSTOMER',
     expiresAt: '2026-11-13T10:00:00.000Z',
   });
 
@@ -43,7 +42,6 @@ export async function createOfflineFixture() {
     keyId: 'key_merchant',
     publicKey: merchantKeys.publicKey,
     displayName: 'Merchant',
-    role: 'MERCHANT',
     expiresAt: '2026-11-13T10:00:00.000Z',
   });
 

@@ -37,7 +37,6 @@ describe('profile', () => {
     expect(response.body.data).toEqual({
       deviceId: device.deviceId,
       displayName: 'Mama Nkechi Provisions',
-      role: 'MERCHANT',
       language: 'pcm',
       payoutEmail: 'merchant-sandbox@example.com',
       assuranceTier: 'B',
@@ -56,7 +55,7 @@ describe('profile', () => {
     expect(response.body.data).toMatchObject({ displayName: 'Mama Nkechi Stores', language: 'yo' });
   });
 
-  it('does not allow the role to be changed', async () => {
+  it('rejects fields that are not part of the profile', async () => {
     const device = await fixture.registerDevice();
     const response = await request(fixture.app)
       .patch('/api/profile')

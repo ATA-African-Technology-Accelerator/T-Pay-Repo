@@ -8,7 +8,6 @@ describe('ERROR_HTTP_STATUS', () => {
     expect(ERROR_HTTP_STATUS).toEqual({
       VALIDATION_FAILED: 400,
       UNAUTHENTICATED: 401,
-      FORBIDDEN_ROLE: 403,
       DEVICE_REVOKED: 403,
       NOT_A_PARTY: 403,
       VAULT_NOT_FOUND: 404,
