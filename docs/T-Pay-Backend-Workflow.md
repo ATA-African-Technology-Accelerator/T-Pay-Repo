@@ -121,8 +121,8 @@ Offline activities ACT-01, ACT-06 to ACT-09, ACT-16 and ACT-17 have no endpoint.
 | `device_tokens` | `device_id`, `token_hash`, `created_at` | Store only a hash |
 | `vaults` | `id`, `device_id`, `paypal_order_id`, `paypal_authorization_id`, amounts, `fx_rate`, `status`, `spend_by`, `settle_by` | One open vault per device |
 | `vouchers` | `id`, `vault_id`, `sequence`, `payload_hash`, `payload`, `payer_device_id`, `payee_device_id`, amounts, `status`, `paypal_capture_id`, `attempts`, `next_attempt_at`, `lease_until` | Unique `vault_id, sequence` |
-| `ledger_entries` | `id`, `device_id`, `type`, `amount_usd_minor`, `amount_ngn_minor`, `voucher_id`, `paypal_capture_id` | Unique `voucher_id, type` |
-| `withdrawals` | `id`, `merchant_device_id`, `amount_usd_minor`, `paypal_batch_id`, `status` | Unique idempotency key |
+| `ledger_entries` | `id`, `device_id`, `type`, `amount_usd_minor`, `amount_ngn_minor`, `voucher_id`, `withdrawal_id`, `paypal_capture_id` | Unique `voucher_id, type` and `withdrawal_id, type` |
+| `withdrawals` | `id`, `device_id`, `receiver_email`, amounts, `paypal_batch_id`, `status`, `attempts`, `next_attempt_at` | The `id` is the PayPal `sender_batch_id` |
 | `paypal_events` | `event_id`, `event_type`, `payload`, `processed_at` | Unique `event_id` |
 | `idempotency_keys` | `key`, `device_id`, `request_hash`, `response` | Unique `device_id, key` |
 | `alerts` | `id`, `type`, `vault_id`, `voucher_id`, `details` | Used for conflicts and overspend |

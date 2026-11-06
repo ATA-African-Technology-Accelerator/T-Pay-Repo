@@ -277,11 +277,9 @@ Called by ACT-11. Returns one voucher in the same shape as an item in section 4.
 
 Errors: `VOUCHER_NOT_FOUND`.
 
-Called by ACT-11. Returns one list item. Errors: `VOUCHER_NOT_FOUND`.
-
 ### 4.10 GET /wallet
 
-Called by ACT-13. Returns collected money. Vault funds and PayPal account balances aren't included.
+Called by ACT-13. Returns collected money. Vault funds and PayPal account balances aren't included. `pendingNgnMinor` is money still settling. `entries` holds the latest 50, newest first. `type` is `CREDIT`, `WITHDRAWAL`, `REVERSAL` or `WITHDRAWAL_RETURNED`. The balance can go below zero if a payment is reversed after the money was withdrawn.
 
 ```json
 {
@@ -307,7 +305,7 @@ Called by ACT-13. Returns collected money. Vault funds and PayPal account balanc
 
 ### 4.11 POST /wallet/withdrawals
 
-Called by ACT-14. Sends collected money to the account's PayPal email.
+Called by ACT-14. Sends collected money to the account's PayPal email. Send `Idempotency-Key`. The balance drops at once. A refused payout returns the money with a `WITHDRAWAL_RETURNED` entry.
 
 ```json
 { "amountUsdMinor": 133 }
@@ -319,7 +317,9 @@ Response `202`:
 { "data": { "withdrawalId": "wdr_1", "status": "PENDING", "paypalBatchId": "SANDBOX-BATCH" } }
 ```
 
-Errors: `INSUFFICIENT_BALANCE`, `PAYPAL_UNAVAILABLE`.
+`status` is `PENDING` or `FAILED` in this reply. `paypalBatchId` is null until PayPal accepts the payout. If PayPal doesn't answer, the backend keeps retrying the same payout, so the app shows pending and must not start a new withdrawal. The result appears in `GET /transactions` as `WITHDRAWAL_COMPLETED` or `WITHDRAWAL_FAILED`.
+
+Errors: `VALIDATION_FAILED`, `INSUFFICIENT_BALANCE`, `IDEMPOTENCY_CONFLICT`.
 
 
 
@@ -419,7 +419,7 @@ Called by ACT-11. Query: `since` is an optional cursor. Returns the permanent hi
 }
 ```
 
-Types are `VAULT_LOCKED`, `VAULT_RELEASED`, `VOUCHER_SUBMITTED`, `VOUCHER_SETTLED`, `VOUCHER_REJECTED`, `WITHDRAWAL_REQUESTED` and `WITHDRAWAL_COMPLETED`.
+Types are `VAULT_LOCKED`, `VAULT_RELEASED`, `VOUCHER_SUBMITTED`, `VOUCHER_SETTLED`, `VOUCHER_REJECTED`, `WITHDRAWAL_REQUESTED`, `WITHDRAWAL_COMPLETED` and `WITHDRAWAL_FAILED`.
 
 
 
