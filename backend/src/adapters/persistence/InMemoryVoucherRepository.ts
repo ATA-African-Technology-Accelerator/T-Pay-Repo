@@ -3,6 +3,7 @@ import type {
   Alert, IVoucherRepository, LedgerRecord, PayPalEventRecord, VaultChanges, VaultSession,
   Voucher, VoucherChanges, VoucherPage,
 } from '../../services/ports';
+import { isInProgress } from '../../services/vaultView';
 import type { InMemoryTransactionRepository } from './InMemoryTransactionRepository';
 import type { InMemoryVaultRepository } from './InMemoryVaultRepository';
 
@@ -68,8 +69,31 @@ export class InMemoryVoucherRepository implements IVoucherRepository {
   }
 
 
+  public async pendingNgnForPayee(deviceId: string): Promise<number> {
+    return this.vouchers
+      .filter((voucher) => voucher.payeeDeviceId === deviceId && isInProgress(voucher))
+      .reduce((total, voucher) => total + voucher.amountNgnMinor, 0);
+  }
+
+
+  public ledgerFor(deviceId: string): LedgerRecord[] {
+    return this.ledger.filter((entry) => entry.deviceId === deviceId);
+  }
+
+
+  public appendLedger(entry: LedgerRecord): void {
+    const exists = this.ledger.some(({ type, voucherId, withdrawalId }) =>
+      type === entry.type
+      && ((voucherId !== null && voucherId === entry.voucherId)
+        || (withdrawalId !== null && withdrawalId === entry.withdrawalId)));
+    if (!exists) {
+      this.ledger.push(entry);
+    }
+  }
+
+
   public async listLedgerForDevice(deviceId: string): Promise<LedgerRecord[]> {
-    return this.ledger.filter((entry) => entry.deviceId === deviceId).reverse();
+    return this.ledgerFor(deviceId).reverse();
   }
 
 
@@ -103,7 +127,7 @@ export class InMemoryVoucherRepository implements IVoucherRepository {
 
 
   private createSession(vaultId: string, vouchers: Voucher[]): VaultSession {
-    const { alerts, ledger, transactions, vaults } = this;
+    const { alerts, transactions, vaults } = this;
     const list = this.vouchers;
     const currentVault = () => vaults.findById(vaultId);
     let vault = vaults.peek(vaultId);
@@ -131,13 +155,7 @@ export class InMemoryVoucherRepository implements IVoucherRepository {
       addAlert: async (alert) => {
         alerts.push(alert);
       },
-      addLedgerEntry: async (entry) => {
-        const exists = ledger.some(({ type, voucherId }) =>
-          type === entry.type && voucherId !== null && voucherId === entry.voucherId);
-        if (!exists) {
-          ledger.push(entry);
-        }
-      },
+      addLedgerEntry: async (entry) => this.appendLedger(entry),
       addEvent: (event) => transactions.append(event),
     };
   }

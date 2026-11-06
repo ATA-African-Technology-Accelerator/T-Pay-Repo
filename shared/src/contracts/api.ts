@@ -59,7 +59,8 @@ export type TransactionType =
   | 'VOUCHER_SETTLED'
   | 'VOUCHER_REJECTED'
   | 'WITHDRAWAL_REQUESTED'
-  | 'WITHDRAWAL_COMPLETED';
+  | 'WITHDRAWAL_COMPLETED'
+  | 'WITHDRAWAL_FAILED';
 
 export interface TransactionView {
   transactionId: string;
@@ -171,7 +172,7 @@ export interface ListVouchersResponse {
 
 export interface LedgerEntry {
   entryId: string;
-  type: 'CREDIT' | 'WITHDRAWAL' | 'REVERSAL';
+  type: 'CREDIT' | 'WITHDRAWAL' | 'REVERSAL' | 'WITHDRAWAL_RETURNED';
   amountUsdMinor: number;
   amountNgnMinor: number;
   voucherId: string | null;
@@ -197,7 +198,7 @@ export interface WithdrawRequest {
 export interface WithdrawResponse {
   withdrawalId: string;
   status: 'PENDING' | 'COMPLETED' | 'FAILED';
-  paypalBatchId: string;
+  paypalBatchId: string | null;
 }
 
 

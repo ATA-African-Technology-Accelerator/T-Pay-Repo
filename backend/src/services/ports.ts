@@ -145,12 +145,27 @@ export interface WebhookNotification {
   rawBody: string;
 }
 
+export interface PayoutInput {
+  senderBatchId: string;
+  receiverEmail: string;
+  amountUsdMinor: number;
+}
+
+export type PayoutResult =
+  | { outcome: 'ACCEPTED'; batchId: string }
+  | { outcome: 'REJECTED'; reason: string }
+  | { outcome: 'RETRY' };
+
+export type PayoutStatus = 'PENDING' | 'COMPLETED' | 'FAILED';
+
 export interface IPaymentGateway {
   createOrder(input: CreateOrderInput): Promise<PaymentOrder>;
   authorizeOrder(input: AuthorizeOrderInput): Promise<PaymentAuthorization | null>;
   capture(input: CaptureInput): Promise<CaptureResult>;
   findCapture(input: FindCaptureInput): Promise<CaptureResult | null>;
   voidAuthorization(authorizationId: string): Promise<VoidResult>;
+  createPayout(input: PayoutInput): Promise<PayoutResult>;
+  getPayoutStatus(batchId: string): Promise<PayoutStatus>;
   verifyWebhook(notification: WebhookNotification): Promise<boolean>;
   isReachable(): Promise<boolean>;
 }
@@ -212,6 +227,7 @@ export interface LedgerRecord {
   amountUsdMinor: number;
   amountNgnMinor: number;
   voucherId: string | null;
+  withdrawalId: string | null;
   paypalCaptureId: string | null;
   createdAt: Date;
 }
@@ -245,8 +261,44 @@ export interface IVoucherRepository {
   listForVault(vaultId: string): Promise<Voucher[]>;
   listForDevice(deviceId: string, cursor: string | null, limit: number): Promise<VoucherPage>;
   findDueForRetry(now: Date): Promise<Voucher[]>;
+  pendingNgnForPayee(deviceId: string): Promise<number>;
   listLedgerForDevice(deviceId: string): Promise<LedgerRecord[]>;
   listAlerts(vaultId: string): Promise<Alert[]>;
   rememberEvent(event: PayPalEventRecord): Promise<boolean>;
   forgetEvent(eventId: string): Promise<void>;
+}
+
+
+export type WithdrawalStatus = PayoutStatus;
+
+export interface Withdrawal {
+  id: string;
+  deviceId: string;
+  receiverEmail: string;
+  amountUsdMinor: number;
+  amountNgnMinor: number;
+  status: WithdrawalStatus;
+  paypalBatchId: string | null;
+  attempts: number;
+  nextAttemptAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export type WithdrawalChanges = Partial<Pick<
+  Withdrawal, 'status' | 'paypalBatchId' | 'attempts' | 'nextAttemptAt' | 'updatedAt'
+>>;
+
+export interface WalletSession {
+  readonly ledger: LedgerRecord[];
+  insertWithdrawal(withdrawal: Withdrawal): Promise<void>;
+  updateWithdrawal(id: string, changes: WithdrawalChanges): Promise<Withdrawal>;
+  addLedgerEntry(entry: LedgerRecord): Promise<void>;
+  addEvent(event: TransactionEvent): Promise<void>;
+}
+
+export interface IWalletRepository {
+  withWalletLock<T>(deviceId: string, work: (session: WalletSession) => Promise<T>): Promise<T>;
+  findWithdrawal(id: string): Promise<Withdrawal | null>;
+  findDueWithdrawals(now: Date): Promise<Withdrawal[]>;
 }

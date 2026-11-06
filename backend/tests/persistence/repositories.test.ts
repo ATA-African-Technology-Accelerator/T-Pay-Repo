@@ -2,13 +2,17 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { InMemoryDeviceRepository } from '../../src/adapters/persistence/InMemoryDeviceRepository';
 import { InMemoryIdempotencyStore } from '../../src/adapters/persistence/InMemoryIdempotencyStore';
 import { InMemoryTransactionRepository } from '../../src/adapters/persistence/InMemoryTransactionRepository';
+import { InMemoryWalletRepository } from '../../src/adapters/persistence/InMemoryWalletRepository';
+import { InMemoryVoucherRepository } from '../../src/adapters/persistence/InMemoryVoucherRepository';
 import { InMemoryVaultRepository } from '../../src/adapters/persistence/InMemoryVaultRepository';
 import { PostgresDeviceRepository } from '../../src/adapters/persistence/PostgresDeviceRepository';
 import { PostgresIdempotencyStore } from '../../src/adapters/persistence/PostgresIdempotencyStore';
 import { PostgresTransactionRepository } from '../../src/adapters/persistence/PostgresTransactionRepository';
 import { PostgresVaultRepository } from '../../src/adapters/persistence/PostgresVaultRepository';
+import { PostgresVoucherRepository } from '../../src/adapters/persistence/PostgresVoucherRepository';
+import { PostgresWalletRepository } from '../../src/adapters/persistence/PostgresWalletRepository';
 import type {
-  IDeviceRepository, IIdempotencyStore, ITransactionRepository, IVaultRepository,
+  IDeviceRepository, IIdempotencyStore, ITransactionRepository, IVaultRepository, IWalletRepository, Withdrawal,
 } from '../../src/services/ports';
 import { device, transaction, vault } from '../support/deviceFactory';
 import { createTestDatabase, testDatabaseUrl } from '../support/testDatabase';
@@ -22,16 +26,22 @@ interface Repositories {
   transactions: ITransactionRepository;
   vaults: IVaultRepository;
   idempotency: IIdempotencyStore;
+  wallet: IWalletRepository;
   close(): Promise<void>;
 }
 
-const inMemory = async (): Promise<Repositories> => ({
-  devices: new InMemoryDeviceRepository(),
-  transactions: new InMemoryTransactionRepository(),
-  vaults: new InMemoryVaultRepository(),
-  idempotency: new InMemoryIdempotencyStore(),
-  close: async () => {},
-});
+const inMemory = async (): Promise<Repositories> => {
+  const transactions = new InMemoryTransactionRepository();
+  const vaults = new InMemoryVaultRepository();
+  return {
+    devices: new InMemoryDeviceRepository(),
+    transactions,
+    vaults,
+    idempotency: new InMemoryIdempotencyStore(),
+    wallet: new InMemoryWalletRepository(new InMemoryVoucherRepository(vaults, transactions), transactions),
+    close: async () => {},
+  };
+};
 
 const postgres = async (): Promise<Repositories> => {
   const { pool, close } = await createTestDatabase();
@@ -40,6 +50,7 @@ const postgres = async (): Promise<Repositories> => {
     transactions: new PostgresTransactionRepository(pool),
     vaults: new PostgresVaultRepository(pool),
     idempotency: new PostgresIdempotencyStore(pool),
+    wallet: new PostgresWalletRepository(pool),
     close,
   };
 };
@@ -271,6 +282,84 @@ describe.each(implementations)('$name repositories', ({ create }) => {
       await repositories.idempotency.claim('dev_i1', 'shared', 'hash');
 
       expect(await repositories.idempotency.claim('dev_i2', 'shared', 'hash')).toEqual({ outcome: 'NEW' });
+    });
+  });
+
+  describe('wallet', () => {
+    const NOW = new Date('2026-11-06T10:00:00.000Z');
+    const withdrawal = (id: string, overrides: Partial<Withdrawal> = {}): Withdrawal => ({
+      id,
+      deviceId: 'dev_w1',
+      receiverEmail: 'seller@example.com',
+      amountUsdMinor: 133,
+      amountNgnMinor: 200_000,
+      status: 'PENDING',
+      paypalBatchId: null,
+      attempts: 0,
+      nextAttemptAt: null,
+      createdAt: NOW,
+      updatedAt: NOW,
+      ...overrides,
+    });
+    const entry = (id: string, type: 'WITHDRAWAL' | 'WITHDRAWAL_RETURNED', withdrawalId: string) => ({
+      id,
+      deviceId: 'dev_w1',
+      type,
+      amountUsdMinor: 133,
+      amountNgnMinor: 200_000,
+      voucherId: null,
+      withdrawalId,
+      paypalCaptureId: null,
+      createdAt: NOW,
+    });
+
+    beforeAll(async () => {
+      await repositories.devices.save(device('w1'));
+    });
+
+    it('stores a withdrawal and its ledger entry together', async () => {
+      await repositories.wallet.withWalletLock('dev_w1', async (session) => {
+        await session.insertWithdrawal(withdrawal('wdr_1'));
+        await session.addLedgerEntry(entry('led_1', 'WITHDRAWAL', 'wdr_1'));
+      });
+
+      expect(await repositories.wallet.findWithdrawal('wdr_1')).toEqual(withdrawal('wdr_1'));
+      await repositories.wallet.withWalletLock('dev_w1', async ({ ledger }) => {
+        expect(ledger).toEqual([entry('led_1', 'WITHDRAWAL', 'wdr_1')]);
+      });
+    });
+
+    it('updates a withdrawal', async () => {
+      const updated = await repositories.wallet.withWalletLock('dev_w1', ({ updateWithdrawal }) =>
+        updateWithdrawal('wdr_1', { paypalBatchId: 'BATCH-1', attempts: 2 }));
+
+      expect(updated).toEqual(withdrawal('wdr_1', { paypalBatchId: 'BATCH-1', attempts: 2 }));
+    });
+
+    it('records one return per withdrawal', async () => {
+      await repositories.wallet.withWalletLock('dev_w1', async ({ addLedgerEntry }) => {
+        await addLedgerEntry(entry('led_2', 'WITHDRAWAL_RETURNED', 'wdr_1'));
+        await addLedgerEntry(entry('led_3', 'WITHDRAWAL_RETURNED', 'wdr_1'));
+      });
+
+      await repositories.wallet.withWalletLock('dev_w1', async ({ ledger }) => {
+        expect(ledger.map(({ id }) => id)).toEqual(['led_1', 'led_2']);
+      });
+    });
+
+    it('lists pending withdrawals that are due', async () => {
+      const later = new Date('2026-11-06T11:00:00.000Z');
+      await repositories.wallet.withWalletLock('dev_w1', async ({ insertWithdrawal }) => {
+        await insertWithdrawal(withdrawal('wdr_due', { nextAttemptAt: NOW }));
+        await insertWithdrawal(withdrawal('wdr_later', { nextAttemptAt: later }));
+        await insertWithdrawal(withdrawal('wdr_done', { status: 'COMPLETED' }));
+      });
+
+      const due = await repositories.wallet.findDueWithdrawals(NOW);
+
+      expect(due.map(({ id }) => id)).toContain('wdr_due');
+      expect(due.map(({ id }) => id)).not.toContain('wdr_later');
+      expect(due.map(({ id }) => id)).not.toContain('wdr_done');
     });
   });
 });

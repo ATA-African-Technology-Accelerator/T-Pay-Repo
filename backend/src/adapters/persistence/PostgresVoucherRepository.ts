@@ -5,6 +5,7 @@ import type {
   Alert, AlertType, IVoucherRepository, LedgerRecord, PayPalEventRecord, StoredVoucherStatus,
   VaultChanges, VaultSession, Voucher, VoucherChanges, VoucherPage,
 } from '../../services/ports';
+import { insertLedgerEntry, toLedgerRecord, type LedgerRow } from './ledgerRows';
 import { PostgresTransactionRepository } from './PostgresTransactionRepository';
 import { toVault, type VaultRow } from './PostgresVaultRepository';
 
@@ -33,18 +34,6 @@ interface VoucherRow {
   lease_until: Date | null;
   created_at: Date;
   updated_at: Date;
-}
-
-
-interface LedgerRow {
-  id: string;
-  device_id: string;
-  type: LedgerRecord['type'];
-  amount_usd_minor: string;
-  amount_ngn_minor: string;
-  voucher_id: string | null;
-  paypal_capture_id: string | null;
-  created_at: Date;
 }
 
 
@@ -96,18 +85,6 @@ const toVoucher = (row: VoucherRow): Voucher => ({
   leaseUntil: row.lease_until,
   createdAt: row.created_at,
   updatedAt: row.updated_at,
-});
-
-
-const toLedgerRecord = (row: LedgerRow): LedgerRecord => ({
-  id: row.id,
-  deviceId: row.device_id,
-  type: row.type,
-  amountUsdMinor: Number(row.amount_usd_minor),
-  amountNgnMinor: Number(row.amount_ngn_minor),
-  voucherId: row.voucher_id,
-  paypalCaptureId: row.paypal_capture_id,
-  createdAt: row.created_at,
 });
 
 
@@ -202,6 +179,16 @@ export class PostgresVoucherRepository implements IVoucherRepository {
       [now],
     );
     return rows.map(toVoucher);
+  }
+
+
+  public async pendingNgnForPayee(deviceId: string): Promise<number> {
+    const { rows } = await this.pool.query<{ total: string }>(
+      `SELECT COALESCE(SUM(amount_ngn_minor), 0) AS total FROM vouchers
+       WHERE payee_device_id = $1 AND status IN ('SETTLING', 'RETRYABLE_FAILURE')`,
+      [deviceId],
+    );
+    return Number(rows[0]?.total);
   }
 
 
@@ -300,18 +287,7 @@ export class PostgresVoucherRepository implements IVoucherRepository {
           [alert.id, alert.type, alert.vaultId, alert.voucherId, JSON.stringify(alert.details), alert.createdAt],
         );
       },
-      addLedgerEntry: async (entry) => {
-        await client.query(
-          `INSERT INTO ledger_entries
-             (id, device_id, type, amount_usd_minor, amount_ngn_minor, voucher_id, paypal_capture_id, created_at)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-           ON CONFLICT (voucher_id, type) DO NOTHING`,
-          [
-            entry.id, entry.deviceId, entry.type, entry.amountUsdMinor, entry.amountNgnMinor,
-            entry.voucherId, entry.paypalCaptureId, entry.createdAt,
-          ],
-        );
-      },
+      addLedgerEntry: (entry) => insertLedgerEntry(client, entry),
       addEvent: (event) => transactions.append(event),
     };
   }
