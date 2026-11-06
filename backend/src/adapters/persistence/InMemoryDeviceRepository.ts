@@ -7,6 +7,14 @@ import type { Device, IDeviceRepository } from '../../services/ports';
 export class InMemoryDeviceRepository implements IDeviceRepository {
   private readonly devices = new Map<string, Device>();
 
+  public async findById(id: string): Promise<Device | null> {
+    return this.findWhere((device) => device.id === id);
+  }
+
+  public async findByKeyId(keyId: string): Promise<Device | null> {
+    return this.findWhere((device) => device.keyId === keyId);
+  }
+
   public async findByPublicKey(publicKey: string): Promise<Device | null> {
     return this.findWhere((device) => device.publicKey === publicKey);
   }

@@ -29,6 +29,14 @@ const toDevice = (row: DeviceRow): Device => ({
 export class PostgresDeviceRepository implements IDeviceRepository {
   constructor(private readonly pool: pg.Pool) {}
 
+  public findById(id: string): Promise<Device | null> {
+    return this.findWhere('id', id);
+  }
+
+  public findByKeyId(keyId: string): Promise<Device | null> {
+    return this.findWhere('key_id', keyId);
+  }
+
   public findByPublicKey(publicKey: string): Promise<Device | null> {
     return this.findWhere('public_key', publicKey);
   }
@@ -64,7 +72,7 @@ export class PostgresDeviceRepository implements IDeviceRepository {
     return toDevice(rows[0] as DeviceRow);
   }
 
-  private async findWhere(column: 'public_key' | 'token_hash', value: string): Promise<Device | null> {
+  private async findWhere(column: 'id' | 'key_id' | 'public_key' | 'token_hash', value: string): Promise<Device | null> {
     const { rows } = await this.pool.query<DeviceRow>(
       `SELECT * FROM devices WHERE ${column} = $1`,
       [value],

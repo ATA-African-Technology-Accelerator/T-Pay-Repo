@@ -69,7 +69,17 @@ describe.each(implementations)('$name repositories', ({ create }) => {
       expect(await repositories.devices.findByTokenHash(saved.tokenHash)).toEqual(saved);
     });
 
+    it('finds a saved device by id and key id', async () => {
+      const saved = device('lookup');
+      await repositories.devices.save(saved);
+
+      expect(await repositories.devices.findById(saved.id)).toEqual(saved);
+      expect(await repositories.devices.findByKeyId(saved.keyId)).toEqual(saved);
+    });
+
     it('returns null for an unknown device', async () => {
+      expect(await repositories.devices.findById('unknown')).toBeNull();
+      expect(await repositories.devices.findByKeyId('unknown')).toBeNull();
       expect(await repositories.devices.findByPublicKey('unknown')).toBeNull();
       expect(await repositories.devices.findByTokenHash('unknown')).toBeNull();
     });
@@ -198,7 +208,17 @@ describe.each(implementations)('$name repositories', ({ create }) => {
       const again = await repositories.vaults.activate('vlt_lock', { ...lock, paypalAuthorizationId: 'AUTH-2' });
 
       expect(active).toMatchObject({ status: 'ACTIVE', ...lock });
+      expect((await repositories.vaults.findByAuthorizationId('AUTH-1'))?.id).toBe('vlt_lock');
+      expect((await repositories.vaults.findByOrderId('ORDER-lock'))?.id).toBe('vlt_lock');
       expect(again).toBeNull();
+    });
+
+    it('lists open vaults once their settle-by time has passed', async () => {
+      const due = await repositories.vaults.findDueForRelease(lock.settleBy);
+      const early = await repositories.vaults.findDueForRelease(new Date('2026-11-08T09:59:59.000Z'));
+
+      expect(due.map(({ id }) => id)).toContain('vlt_lock');
+      expect(early.map(({ id }) => id)).not.toContain('vlt_lock');
     });
 
     it('frees the device when a pending vault is abandoned, but never an active one', async () => {

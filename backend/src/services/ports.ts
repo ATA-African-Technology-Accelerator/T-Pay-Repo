@@ -1,4 +1,6 @@
-import type { Language, VaultStatus } from '@tpay/shared/contracts/statuses';
+import type { LedgerEntry } from '@tpay/shared/contracts/api';
+import type { ReceiptPayload, SignedEnvelope, VoucherPayload } from '@tpay/shared/contracts/messages';
+import type { Language, VaultStatus, VoucherStatus } from '@tpay/shared/contracts/statuses';
 import type { TransactionView } from '@tpay/shared/contracts/api';
 
 
@@ -17,6 +19,8 @@ export interface Device {
 
 
 export interface IDeviceRepository {
+  findById(id: string): Promise<Device | null>;
+  findByKeyId(keyId: string): Promise<Device | null>;
   findByPublicKey(publicKey: string): Promise<Device | null>;
   findByTokenHash(tokenHash: string): Promise<Device | null>;
   save(device: Device): Promise<Device>;
@@ -53,6 +57,9 @@ export interface Vault {
   paypalAuthorizationId: string | null;
   spendBy: Date | null;
   settleBy: Date | null;
+  declaredLastSequence: number | null;
+  declaredTotalUsdMinor: number | null;
+  releasedAt: Date | null;
   createdAt: Date;
 }
 
@@ -65,7 +72,10 @@ export interface VaultLock {
 export interface IVaultRepository {
   create(vault: Vault): Promise<boolean>;
   findById(id: string): Promise<Vault | null>;
+  findByAuthorizationId(authorizationId: string): Promise<Vault | null>;
+  findByOrderId(orderId: string): Promise<Vault | null>;
   findOpenForDevice(deviceId: string): Promise<Vault | null>;
+  findDueForRelease(now: Date): Promise<Vault[]>;
   activate(id: string, lock: VaultLock): Promise<Vault | null>;
   abandon(id: string): Promise<void>;
 }
@@ -111,9 +121,132 @@ export interface PaymentAuthorization {
   amountUsdMinor: number;
 }
 
+export interface CaptureInput {
+  authorizationId: string;
+  requestId: string;
+  invoiceId: string;
+  amountUsdMinor: number;
+}
+
+export type CaptureResult =
+  | { outcome: 'COMPLETED' | 'PENDING'; captureId: string }
+  | { outcome: 'BLOCKED'; reason: string }
+  | { outcome: 'RETRY' };
+
+export interface FindCaptureInput {
+  orderId: string;
+  invoiceId: string;
+}
+
+export type VoidResult = 'VOIDED' | 'ALREADY_CAPTURED';
+
+export interface WebhookNotification {
+  headers: Record<string, string | string[] | undefined>;
+  rawBody: string;
+}
+
 export interface IPaymentGateway {
   createOrder(input: CreateOrderInput): Promise<PaymentOrder>;
   authorizeOrder(input: AuthorizeOrderInput): Promise<PaymentAuthorization | null>;
-  voidAuthorization(authorizationId: string): Promise<void>;
+  capture(input: CaptureInput): Promise<CaptureResult>;
+  findCapture(input: FindCaptureInput): Promise<CaptureResult | null>;
+  voidAuthorization(authorizationId: string): Promise<VoidResult>;
+  verifyWebhook(notification: WebhookNotification): Promise<boolean>;
   isReachable(): Promise<boolean>;
+}
+
+
+export type StoredVoucherStatus = Exclude<VoucherStatus, 'DRAFT' | 'SIGNED' | 'DELIVERED' | 'ACKNOWLEDGED'>;
+
+export interface Voucher {
+  id: string;
+  vaultId: string;
+  sequence: number;
+  payloadHash: string;
+  payload: VoucherPayload;
+  signature: string;
+  receipt: SignedEnvelope<ReceiptPayload> | null;
+  payerDeviceId: string;
+  payeeDeviceId: string;
+  payerName: string;
+  payeeName: string;
+  amountNgnMinor: number;
+  amountUsdMinor: number;
+  status: StoredVoucherStatus;
+  paypalCaptureId: string | null;
+  attempts: number;
+  nextAttemptAt: Date | null;
+  leaseUntil: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export type VoucherChanges = Partial<Pick<
+  Voucher, 'status' | 'paypalCaptureId' | 'attempts' | 'nextAttemptAt' | 'leaseUntil' | 'updatedAt'
+>>;
+
+export type VaultChanges = Partial<Pick<
+  Vault, 'status' | 'declaredLastSequence' | 'declaredTotalUsdMinor' | 'releasedAt'
+>>;
+
+export type AlertType =
+  | 'VOUCHER_CONFLICT'
+  | 'VOUCHER_OVERSPEND'
+  | 'STATEMENT_VIOLATION'
+  | 'SETTLEMENT_BLOCKED'
+  | 'PAYMENT_REVERSED';
+
+export interface Alert {
+  id: string;
+  type: AlertType;
+  vaultId: string;
+  voucherId: string | null;
+  details: Record<string, unknown>;
+  createdAt: Date;
+}
+
+export interface LedgerRecord {
+  id: string;
+  deviceId: string;
+  type: LedgerEntry['type'];
+  amountUsdMinor: number;
+  amountNgnMinor: number;
+  voucherId: string | null;
+  paypalCaptureId: string | null;
+  createdAt: Date;
+}
+
+export interface VaultSession {
+  readonly vault: Vault;
+  readonly vouchers: Voucher[];
+  insertVoucher(voucher: Voucher): Promise<void>;
+  updateVoucher(id: string, changes: VoucherChanges): Promise<Voucher>;
+  updateVault(changes: VaultChanges): Promise<void>;
+  addAlert(alert: Alert): Promise<void>;
+  addLedgerEntry(entry: LedgerRecord): Promise<void>;
+  addEvent(event: TransactionEvent): Promise<void>;
+}
+
+export interface VoucherPage {
+  items: Voucher[];
+  nextCursor: string | null;
+}
+
+export interface PayPalEventRecord {
+  id: string;
+  type: string;
+  payload: unknown;
+}
+
+export interface IVoucherRepository {
+  withVaultLock<T>(vaultId: string, work: (session: VaultSession) => Promise<T>): Promise<T>;
+  findById(id: string): Promise<Voucher | null>;
+  findByCaptureId(captureId: string): Promise<Voucher | null>;
+  listForVault(vaultId: string): Promise<Voucher[]>;
+  listForDevice(deviceId: string, cursor: string | null, limit: number): Promise<VoucherPage>;
+  findDueForRetry(now: Date): Promise<Voucher[]>;
+  listLedgerForDevice(deviceId: string): Promise<LedgerRecord[]>;
+  listAlerts(vaultId: string): Promise<Alert[]>;
+  rememberEvent(event: PayPalEventRecord): Promise<boolean>;
+  forgetEvent(eventId: string): Promise<void>;
 }

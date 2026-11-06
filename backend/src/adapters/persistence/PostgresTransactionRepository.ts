@@ -38,7 +38,7 @@ const toEvent = (row: TransactionRow): TransactionEvent => ({
 });
 
 export class PostgresTransactionRepository implements ITransactionRepository {
-  constructor(private readonly pool: pg.Pool) {}
+  constructor(private readonly pool: Pick<pg.Pool, 'query'>) {}
 
   public async append(event: TransactionEvent): Promise<void> {
     await this.pool.query(

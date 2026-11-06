@@ -171,7 +171,7 @@ export interface ListVouchersResponse {
 
 export interface LedgerEntry {
   entryId: string;
-  type: 'CREDIT' | 'WITHDRAWAL';
+  type: 'CREDIT' | 'WITHDRAWAL' | 'REVERSAL';
   amountUsdMinor: number;
   amountNgnMinor: number;
   voucherId: string | null;

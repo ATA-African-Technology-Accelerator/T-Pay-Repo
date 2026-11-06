@@ -45,6 +45,9 @@ export const vault = (name: string, deviceId: string, overrides: Partial<Vault> 
   paypalAuthorizationId: null,
   spendBy: null,
   settleBy: null,
+  declaredLastSequence: null,
+  declaredTotalUsdMinor: null,
+  releasedAt: null,
   createdAt: new Date('2026-11-06T10:00:00.000Z'),
   ...overrides,
 });

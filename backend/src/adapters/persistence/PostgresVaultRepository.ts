@@ -2,7 +2,7 @@ import type pg from 'pg';
 import type { VaultStatus } from '@tpay/shared/contracts/statuses';
 import type { IVaultRepository, Vault, VaultLock } from '../../services/ports';
 
-interface VaultRow {
+export interface VaultRow {
   id: string;
   device_id: string;
   status: VaultStatus;
@@ -14,10 +14,13 @@ interface VaultRow {
   paypal_authorization_id: string | null;
   spend_by: Date | null;
   settle_by: Date | null;
+  declared_last_sequence: number | null;
+  declared_total_usd_minor: string | null;
+  released_at: Date | null;
   created_at: Date;
 }
 
-const toVault = (row: VaultRow): Vault => ({
+export const toVault = (row: VaultRow): Vault => ({
   id: row.id,
   deviceId: row.device_id,
   status: row.status,
@@ -29,6 +32,9 @@ const toVault = (row: VaultRow): Vault => ({
   paypalAuthorizationId: row.paypal_authorization_id,
   spendBy: row.spend_by,
   settleBy: row.settle_by,
+  declaredLastSequence: row.declared_last_sequence,
+  declaredTotalUsdMinor: row.declared_total_usd_minor === null ? null : Number(row.declared_total_usd_minor),
+  releasedAt: row.released_at,
   createdAt: row.created_at,
 });
 
@@ -63,6 +69,27 @@ export class PostgresVaultRepository implements IVaultRepository {
   public async findById(id: string): Promise<Vault | null> {
     const { rows } = await this.pool.query<VaultRow>('SELECT * FROM vaults WHERE id = $1', [id]);
     return rows[0] ? toVault(rows[0]) : null;
+  }
+
+  public async findByAuthorizationId(authorizationId: string): Promise<Vault | null> {
+    const { rows } = await this.pool.query<VaultRow>(
+      'SELECT * FROM vaults WHERE paypal_authorization_id = $1',
+      [authorizationId],
+    );
+    return rows[0] ? toVault(rows[0]) : null;
+  }
+
+  public async findByOrderId(orderId: string): Promise<Vault | null> {
+    const { rows } = await this.pool.query<VaultRow>('SELECT * FROM vaults WHERE paypal_order_id = $1', [orderId]);
+    return rows[0] ? toVault(rows[0]) : null;
+  }
+
+  public async findDueForRelease(now: Date): Promise<Vault[]> {
+    const { rows } = await this.pool.query<VaultRow>(
+      "SELECT * FROM vaults WHERE status <> 'CLOSED' AND settle_by <= $1",
+      [now],
+    );
+    return rows.map(toVault);
   }
 
   public async findOpenForDevice(deviceId: string): Promise<Vault | null> {

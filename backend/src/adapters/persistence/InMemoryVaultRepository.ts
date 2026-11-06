@@ -15,6 +15,28 @@ export class InMemoryVaultRepository implements IVaultRepository {
     return this.vaults.get(id) ?? null;
   }
 
+  public async findByAuthorizationId(authorizationId: string): Promise<Vault | null> {
+    return [...this.vaults.values()].find((vault) => vault.paypalAuthorizationId === authorizationId) ?? null;
+  }
+
+  public async findByOrderId(orderId: string): Promise<Vault | null> {
+    return [...this.vaults.values()].find((vault) => vault.paypalOrderId === orderId) ?? null;
+  }
+
+  public async findDueForRelease(now: Date): Promise<Vault[]> {
+    return [...this.vaults.values()].filter(
+      ({ settleBy, status }) => status !== 'CLOSED' && settleBy !== null && settleBy <= now,
+    );
+  }
+
+  public peek(id: string): Vault {
+    return this.vaults.get(id) as Vault;
+  }
+
+  public replace(vault: Vault): void {
+    this.vaults.set(vault.id, vault);
+  }
+
   public async findOpenForDevice(deviceId: string): Promise<Vault | null> {
     const open = [...this.vaults.values()].find(
       (vault) => vault.deviceId === deviceId && vault.status !== 'CLOSED',
