@@ -36,7 +36,7 @@ export async function acceptVoucher(
   const payload = voucher.payload;
   const trust = { rootPublicKey, signer, now };
 
-  const customer = await verifyDeviceCertificate(input.customerCertificate, 'CUSTOMER', trust);
+  const customer = await verifyDeviceCertificate(input.customerCertificate, trust);
   if (customer.isFailure) return Result.fail(customer.error as string);
 
   const vault = await verifyVaultCertificate(input.vaultCertificate, customer.getValue().keyId, trust);
@@ -83,6 +83,7 @@ function findVoucherRefusal(
     return REFUSAL.INVALID_CERTIFICATE;
   }
   if (payload.payeeKeyId !== merchantKeyId) return REFUSAL.WRONG_PAYEE;
+  if (payload.payeeKeyId === payload.keyId) return REFUSAL.SELF_PAYMENT;
   if (payload.requestNonce !== request.nonce || payload.amountNgnMinor !== request.amountNgnMinor) {
     return REFUSAL.REQUEST_MISMATCH;
   }

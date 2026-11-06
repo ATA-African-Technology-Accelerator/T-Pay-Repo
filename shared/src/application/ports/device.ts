@@ -2,6 +2,26 @@ import type { Language } from '../../contracts/statuses';
 
 
 
+
+
+
+export interface StoredPin {
+  salt: string;
+  hash: string;
+  failedAttempts: number;
+  lockedUntil: string | null;
+}
+
+export interface IPinStore {
+  load(): Promise<StoredPin | null>;
+  save(pin: StoredPin): Promise<void>;
+}
+
+export interface IBiometricUnlock {
+  isAvailable(): Promise<boolean>;
+  authenticate(): Promise<boolean>;
+}
+
 export interface IProximityTransport {
   send(frame: string): Promise<void>;
   receive(): Promise<string>;

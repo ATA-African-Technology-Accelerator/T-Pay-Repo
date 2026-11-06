@@ -2,7 +2,7 @@ import type {
   AuthorizeVaultResponse, CreateVaultRequest, CreateVaultResponse,
   CurrentVaultResponse, InterpretRequest, InterpretResponse,
   ListTransactionsResponse, ListVouchersResponse, MeltVaultRequest,
-  MeltVaultResponse, MerchantLedgerResponse, ProfileView,
+  MeltVaultResponse, ActiveWalletResponse, ProfileView,
   RegisterDeviceRequest, RegisterDeviceResponse, SubmitVoucherRequest,
   SubmitVoucherResponse, UpdateProfileRequest, VoucherView,
   WithdrawRequest, WithdrawResponse,
@@ -24,7 +24,7 @@ export interface ITPayApi {
   listVouchers(since?: string): Promise<ListVouchersResponse>;
   getVoucher(voucherId: string): Promise<VoucherView>;
   listTransactions(since?: string): Promise<ListTransactionsResponse>;
-  getMerchantLedger(): Promise<MerchantLedgerResponse>;
+  getActiveWallet(): Promise<ActiveWalletResponse>;
   withdraw(request: WithdrawRequest): Promise<WithdrawResponse>;
   interpret(request: InterpretRequest): Promise<InterpretResponse>;
 }

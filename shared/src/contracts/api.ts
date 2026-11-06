@@ -4,7 +4,7 @@ import type {
   VaultCertificatePayload, VoucherPayload,
 } from './messages';
 
-import type { DeviceRole, Language, VaultStatus, VoucherStatus } from './statuses';
+import type { Language, VaultStatus, VoucherStatus } from './statuses';
 
 
 
@@ -21,9 +21,8 @@ export type SignedVaultCertificate = SignedEnvelope<VaultCertificatePayload>;
 export interface RegisterDeviceRequest {
   publicKey: string;
   displayName: string;
-  role: DeviceRole;
   language: Language;
-  payoutEmail?: string;
+  payoutEmail: string;
   proof: string;
 }
 
@@ -40,9 +39,8 @@ export interface RegisterDeviceResponse {
 export interface ProfileView {
   deviceId: string;
   displayName: string;
-  role: DeviceRole;
   language: Language;
-  payoutEmail: string | null;
+  payoutEmail: string;
   assuranceTier: 'B';
   createdAt: string;
 }
@@ -175,15 +173,18 @@ export interface LedgerEntry {
   entryId: string;
   type: 'CREDIT' | 'WITHDRAWAL';
   amountUsdMinor: number;
+  amountNgnMinor: number;
   voucherId: string | null;
   paypalCaptureId: string | null;
   createdAt: string;
 }
 
 
-export interface MerchantLedgerResponse {
+export interface ActiveWalletResponse {
   balanceUsdMinor: number;
+  balanceNgnMinor: number;
   pendingNgnMinor: number;
+  payoutEmail: string;
   entries: LedgerEntry[];
 }
 
@@ -212,10 +213,7 @@ export interface InterpretRequest {
   audioBase64: string | null;
   audioMimeType: string | null;
   language: Language;
-  context: {
-    role: DeviceRole;
-    remainingNgnMinor: number;
-  };
+  context: { remainingNgnMinor: number; };
 }
 
 

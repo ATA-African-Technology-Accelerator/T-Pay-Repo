@@ -45,7 +45,6 @@ export async function issueVoucher(
 
   const merchant = await verifyDeviceCertificate(
     request.payload.merchantCertificate,
-    'MERCHANT',
     trust,
   );
   if (merchant.isFailure) return Result.fail(merchant.error as string);
@@ -56,9 +55,15 @@ export async function issueVoucher(
     merchant.getValue().publicKey,
     signer,
   );
+  
   if (!requestIsValid || request.payload.merchantKeyId !== merchant.getValue().keyId) {
     return Result.fail(REFUSAL.INVALID_SIGNATURE);
   }
+
+  if (request.payload.merchantKeyId === input.customerKeyId) {
+    return Result.fail(REFUSAL.SELF_PAYMENT);
+  }
+
   if (new Date(request.payload.expiresAt) <= now) {
     return Result.fail(REFUSAL.REQUEST_EXPIRED);
   }

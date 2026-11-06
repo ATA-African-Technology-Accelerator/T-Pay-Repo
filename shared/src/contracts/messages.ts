@@ -1,4 +1,4 @@
-import type { DeviceRole, Language } from './statuses';
+import type { Language } from './statuses';
 
 
 
@@ -22,9 +22,8 @@ export interface SignedEnvelope<T> {
 export interface RegistrationProofPayload {
   publicKey: string;
   displayName: string;
-  role: DeviceRole;
   language: Language;
-  payoutEmail: string | null;
+  payoutEmail: string;
 }
 
 
@@ -33,7 +32,6 @@ export interface DeviceCertificatePayload {
   keyId: string;
   publicKey: string;
   displayName: string;
-  role: DeviceRole;
   expiresAt: string;
 }
 

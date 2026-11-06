@@ -4,7 +4,6 @@ import type {
   DeviceCertificatePayload, SignedEnvelope, VaultCertificatePayload,
 } from '../contracts/messages';
 import { REFUSAL } from '../contracts/refusals';
-import type { DeviceRole } from '../contracts/statuses';
 import { Result } from '../shared/domain/Result';
 import { verifyMessage } from './signedMessages';
 
@@ -22,9 +21,9 @@ interface TrustContext {
 
 export async function verifyDeviceCertificate(
   certificate: SignedEnvelope<DeviceCertificatePayload>,
-  expectedRole: DeviceRole,
   { rootPublicKey, now, signer }: TrustContext,
 ): Promise<Result<DeviceCertificatePayload>> {
+
   const valid = await verifyMessage(
     MESSAGE_PREFIX.DEVICE_CERTIFICATE,
     certificate,
@@ -33,7 +32,7 @@ export async function verifyDeviceCertificate(
   );
   const unexpired = new Date(certificate.payload.expiresAt) > now;
 
-  if (!valid || !unexpired || certificate.payload.role !== expectedRole) {
+  if (!valid || !unexpired) {
     return Result.fail(REFUSAL.INVALID_CERTIFICATE);
   }
   return Result.ok(certificate.payload);
