@@ -2,6 +2,8 @@ import type { Device, IDeviceRepository } from '../../services/ports';
 
 
 
+
+
 export class InMemoryDeviceRepository implements IDeviceRepository {
   private readonly devices = new Map<string, Device>();
 
@@ -13,8 +15,19 @@ export class InMemoryDeviceRepository implements IDeviceRepository {
     return this.findWhere((device) => device.tokenHash === tokenHash);
   }
 
-  public async save(device: Device): Promise<void> {
-    this.devices.set(device.id, device);
+  public async save(device: Device): Promise<Device> {
+    const existing = this.devices.get(device.publicKey);
+    const saved = existing
+      ? {
+          ...device,
+          id: existing.id,
+          keyId: existing.keyId,
+          createdAt: existing.createdAt,
+          revokedAt: existing.revokedAt ?? device.revokedAt,
+        }
+      : device;
+    this.devices.set(device.publicKey, saved);
+    return saved;
   }
 
   private findWhere(matches: (device: Device) => boolean): Device | null {

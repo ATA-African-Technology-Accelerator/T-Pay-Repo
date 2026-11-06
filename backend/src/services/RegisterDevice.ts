@@ -45,9 +45,11 @@ export class RegisterDevice {
 
     const deviceToken = random.nonce();
     const tokenHash = await signer.hash(deviceToken);
-    const device = existing ? { ...existing, tokenHash } : this.createDevice(request, tokenHash);
-    await devices.save(device);
+    const device = await devices.save(
+      existing ? { ...existing, tokenHash } : this.createDevice(request, tokenHash),
+    );
 
+    
     return {
       created: !existing,
       response: {
