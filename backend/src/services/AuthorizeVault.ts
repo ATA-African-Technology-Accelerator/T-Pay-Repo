@@ -5,7 +5,8 @@ import { MESSAGE_PREFIX } from '@tpay/shared/contracts/messages';
 import { signMessage } from '@tpay/shared/domain/signedMessages';
 import { ApiError } from './ApiError';
 import type {
-  Device, IPaymentGateway, ITransactionRepository, IVaultRepository, PaymentAuthorization, Vault,
+  Device, IPaymentGateway, ITransactionRepository, IVaultRepository, IVoucherRepository,
+  PaymentAuthorization, Vault,
 } from './ports';
 import { toVaultView } from './vaultView';
 
@@ -14,6 +15,7 @@ const SETTLEMENT_GRACE_HOURS = 24;
 
 export interface AuthorizeVaultDependencies {
   vaults: IVaultRepository;
+  vouchers: IVoucherRepository;
   transactions: ITransactionRepository;
   gateway: IPaymentGateway;
   signer: ISigner;
@@ -72,8 +74,8 @@ export class AuthorizeVault {
   }
 
   private async present(device: Device, vault: Vault): Promise<AuthorizeVaultResponse> {
-    const { rootPrivateKey, signer } = this.dependencies;
-    const view = toVaultView(vault);
+    const { rootPrivateKey, signer, vouchers } = this.dependencies;
+    const view = toVaultView(vault, await vouchers.listForVault(vault.id));
     return {
       vault: view,
       vaultCertificate: await signMessage(

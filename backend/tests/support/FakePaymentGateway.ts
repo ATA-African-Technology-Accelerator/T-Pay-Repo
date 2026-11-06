@@ -1,13 +1,24 @@
 import { ApiError } from '../../src/services/ApiError';
 import type {
-  AuthorizeOrderInput, CreateOrderInput, IPaymentGateway, PaymentAuthorization, PaymentOrder,
+  AuthorizeOrderInput, CaptureInput, CaptureResult, CreateOrderInput, FindCaptureInput,
+  IPaymentGateway, PaymentAuthorization, PaymentOrder, VoidResult, WebhookNotification,
 } from '../../src/services/ports';
+
+export interface RecordedCapture extends CaptureInput {
+  captureId: string;
+}
 
 export class FakePaymentGateway implements IPaymentGateway {
   public readonly orders: CreateOrderInput[] = [];
   public readonly authorizeCalls: AuthorizeOrderInput[] = [];
   public readonly voidedAuthorizations: string[] = [];
+  public readonly captures: RecordedCapture[] = [];
+  public readonly captureCalls: CaptureInput[] = [];
+  public readonly plannedCaptures: Array<CaptureResult | 'TIMEOUT_AFTER_CAPTURE'> = [];
+  public readonly webhooks: WebhookNotification[] = [];
   public unavailable = false;
+  public webhookIsValid = true;
+  public voidResult: VoidResult = 'VOIDED';
   private readonly approved = new Set<string>();
 
   public approve(orderId: string): void {
@@ -34,9 +45,35 @@ export class FakePaymentGateway implements IPaymentGateway {
     };
   }
 
-  public async voidAuthorization(authorizationId: string): Promise<void> {
+  public async capture(input: CaptureInput): Promise<CaptureResult> {
+    this.captureCalls.push(input);
+    const planned = this.plannedCaptures.shift();
+    if (planned && planned !== 'TIMEOUT_AFTER_CAPTURE') {
+      return planned;
+    }
+    const known = this.captures.find(({ invoiceId }) => invoiceId === input.invoiceId);
+    const captureId = known?.captureId ?? `CAPTURE-${this.captures.length + 1}`;
+    if (!known) {
+      this.captures.push({ ...input, captureId });
+    }
+    return planned ? { outcome: 'RETRY' } : { outcome: 'COMPLETED', captureId };
+  }
+
+  public async findCapture({ invoiceId }: FindCaptureInput): Promise<CaptureResult | null> {
+    this.assertAvailable();
+    const known = this.captures.find((capture) => capture.invoiceId === invoiceId);
+    return known ? { outcome: 'COMPLETED', captureId: known.captureId } : null;
+  }
+
+  public async voidAuthorization(authorizationId: string): Promise<VoidResult> {
     this.assertAvailable();
     this.voidedAuthorizations.push(authorizationId);
+    return this.voidResult;
+  }
+
+  public async verifyWebhook(notification: WebhookNotification): Promise<boolean> {
+    this.webhooks.push(notification);
+    return this.webhookIsValid;
   }
 
   public async isReachable(): Promise<boolean> {

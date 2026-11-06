@@ -50,6 +50,9 @@ export class CreateVaultOrder {
       paypalAuthorizationId: null,
       spendBy: null,
       settleBy: null,
+      declaredLastSequence: null,
+      declaredTotalUsdMinor: null,
+      releasedAt: null,
       createdAt: clock.now(),
     });
     if (!created) {
