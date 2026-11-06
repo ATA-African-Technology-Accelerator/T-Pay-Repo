@@ -28,6 +28,13 @@ export const updateProfileSchema = z
   })
   .strict();
 
+
+
+export const listTransactionsQuerySchema = z
+  .object({ since: z.string().regex(/^\d+$/).optional() })
+  .strict();
+
+  
   
 export function parseBody<T>(schema: z.ZodType<T>, body: unknown): T {
   const result = schema.safeParse(body);

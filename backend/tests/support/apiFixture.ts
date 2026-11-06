@@ -7,7 +7,7 @@ import { NodeP256Signer } from '../../src/adapters/crypto/NodeP256Signer';
 import { InMemoryDeviceRepository } from '../../src/adapters/persistence/InMemoryDeviceRepository';
 import { NodeRandom } from '../../src/adapters/system/NodeRandom';
 import { createApp } from '../../src/app';
-
+import { InMemoryTransactionRepository } from '../../src/adapters/persistence/InMemoryTransactionRepository';
 
 
 
@@ -17,10 +17,14 @@ export const NOW = new Date('2026-11-06T10:00:00.000Z');
 const signer = new NodeP256Signer();
 
 
-export async function createApiFixture() {
+export async function createApiFixture({databaseIsUp = true} = {}) {
   const root = await signer.generateKeyPair();
+  const transactions = new InMemoryTransactionRepository();
+
   const app = createApp({
     devices: new InMemoryDeviceRepository(),
+    transactions,
+    checkDatabase: async () => databaseIsUp,
     signer,
     random: new NodeRandom(),
     clock: { now: () => NOW },
@@ -45,5 +49,5 @@ export async function createApiFixture() {
     return response.body.data as { deviceId: string; deviceToken: string };
   };
 
-  return { app, root, signer, registration, registerDevice };
+  return { app, root, signer, transactions, registration, registerDevice };
 }
