@@ -4,7 +4,6 @@ import { ApiError } from '../services/ApiError';
 
 
 
-const role = z.enum(['CUSTOMER', 'MERCHANT']);
 const language = z.enum(['en', 'pcm', 'yo', 'ig', 'ha']);
 const displayName = z.string().trim().min(1).max(80);
 const payoutEmail = z.string().email();
@@ -14,19 +13,13 @@ export const registerDeviceSchema = z
   .object({
     publicKey: z.string().min(1),
     displayName,
-    role,
     language,
-    payoutEmail: payoutEmail.nullable().optional(),
+    payoutEmail: payoutEmail,
     proof: z.string().min(1),
   })
-  .strict()
-  .refine((body) => body.role !== 'MERCHANT' || Boolean(body.payoutEmail), {
-    message: 'A merchant needs a payout email',
-    path: ['payoutEmail'],
-  })
-  .transform((body) => ({ ...body, payoutEmail: body.payoutEmail ?? undefined }));
+  .strict();
 
-
+  
 export const updateProfileSchema = z
   .object({
     displayName: displayName.optional(),

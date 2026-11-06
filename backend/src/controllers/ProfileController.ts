@@ -11,7 +11,6 @@ function toProfileView(device: Device): ProfileView {
   return {
     deviceId: device.id,
     displayName: device.displayName,
-    role: device.role,
     language: device.language,
     payoutEmail: device.payoutEmail,
     assuranceTier: 'B',
