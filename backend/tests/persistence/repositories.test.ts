@@ -1,10 +1,16 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { InMemoryDeviceRepository } from '../../src/adapters/persistence/InMemoryDeviceRepository';
+import { InMemoryIdempotencyStore } from '../../src/adapters/persistence/InMemoryIdempotencyStore';
 import { InMemoryTransactionRepository } from '../../src/adapters/persistence/InMemoryTransactionRepository';
+import { InMemoryVaultRepository } from '../../src/adapters/persistence/InMemoryVaultRepository';
 import { PostgresDeviceRepository } from '../../src/adapters/persistence/PostgresDeviceRepository';
+import { PostgresIdempotencyStore } from '../../src/adapters/persistence/PostgresIdempotencyStore';
 import { PostgresTransactionRepository } from '../../src/adapters/persistence/PostgresTransactionRepository';
-import type { IDeviceRepository, ITransactionRepository } from '../../src/services/ports';
-import { device, transaction } from '../support/deviceFactory';
+import { PostgresVaultRepository } from '../../src/adapters/persistence/PostgresVaultRepository';
+import type {
+  IDeviceRepository, IIdempotencyStore, ITransactionRepository, IVaultRepository,
+} from '../../src/services/ports';
+import { device, transaction, vault } from '../support/deviceFactory';
 import { createTestDatabase, testDatabaseUrl } from '../support/testDatabase';
 
 
@@ -14,12 +20,16 @@ import { createTestDatabase, testDatabaseUrl } from '../support/testDatabase';
 interface Repositories {
   devices: IDeviceRepository;
   transactions: ITransactionRepository;
+  vaults: IVaultRepository;
+  idempotency: IIdempotencyStore;
   close(): Promise<void>;
 }
 
 const inMemory = async (): Promise<Repositories> => ({
   devices: new InMemoryDeviceRepository(),
   transactions: new InMemoryTransactionRepository(),
+  vaults: new InMemoryVaultRepository(),
+  idempotency: new InMemoryIdempotencyStore(),
   close: async () => {},
 });
 
@@ -28,6 +38,8 @@ const postgres = async (): Promise<Repositories> => {
   return {
     devices: new PostgresDeviceRepository(pool),
     transactions: new PostgresTransactionRepository(pool),
+    vaults: new PostgresVaultRepository(pool),
+    idempotency: new PostgresIdempotencyStore(pool),
     close,
   };
 };
@@ -143,6 +155,102 @@ describe.each(implementations)('$name repositories', ({ create }) => {
       expect(first.items.map((item) => item.id)).toEqual(['txn_3', 'txn_2']);
       expect(second.items.map((item) => item.id)).toEqual(['txn_1']);
       expect(second.nextCursor).toBeNull();
+    });
+  });
+
+  describe('vaults', () => {
+    const lock = {
+      paypalAuthorizationId: 'AUTH-1',
+      spendBy: new Date('2026-11-07T10:00:00.000Z'),
+      settleBy: new Date('2026-11-08T10:00:00.000Z'),
+    };
+
+    beforeAll(async () => {
+      for (const name of ['v1', 'v2', 'v3', 'v4']) {
+        await repositories.devices.save(device(name));
+      }
+    });
+
+    it('stores a vault and finds it by id and device', async () => {
+      const created = vault('find', 'dev_v1');
+
+      expect(await repositories.vaults.create(created)).toBe(true);
+      expect(await repositories.vaults.findById(created.id)).toEqual(created);
+      expect(await repositories.vaults.findOpenForDevice('dev_v1')).toEqual(created);
+    });
+
+    it('returns null for an unknown vault', async () => {
+      expect(await repositories.vaults.findById('vlt_unknown')).toBeNull();
+      expect(await repositories.vaults.findOpenForDevice('dev_unknown')).toBeNull();
+    });
+
+    it('allows only one open vault per device', async () => {
+      await repositories.vaults.create(vault('first', 'dev_v2'));
+
+      expect(await repositories.vaults.create(vault('second', 'dev_v2'))).toBe(false);
+      expect((await repositories.vaults.findOpenForDevice('dev_v2'))?.id).toBe('vlt_first');
+    });
+
+    it('activates a pending vault only once', async () => {
+      await repositories.vaults.create(vault('lock', 'dev_v3'));
+
+      const active = await repositories.vaults.activate('vlt_lock', lock);
+      const again = await repositories.vaults.activate('vlt_lock', { ...lock, paypalAuthorizationId: 'AUTH-2' });
+
+      expect(active).toMatchObject({ status: 'ACTIVE', ...lock });
+      expect(again).toBeNull();
+    });
+
+    it('frees the device when a pending vault is abandoned, but never an active one', async () => {
+      await repositories.vaults.abandon('vlt_lock');
+      expect((await repositories.vaults.findById('vlt_lock'))?.status).toBe('ACTIVE');
+
+      await repositories.vaults.create(vault('stale', 'dev_v4'));
+      await repositories.vaults.abandon('vlt_stale');
+
+      expect(await repositories.vaults.findOpenForDevice('dev_v4')).toBeNull();
+      expect(await repositories.vaults.create(vault('fresh', 'dev_v4'))).toBe(true);
+    });
+  });
+
+  describe('idempotency keys', () => {
+    const response = { status: 201, body: { data: { vaultId: 'vlt_1' } } };
+
+    beforeAll(async () => {
+      await repositories.devices.save(device('i1'));
+      await repositories.devices.save(device('i2'));
+    });
+
+    it('claims a new key, then replays the stored response', async () => {
+      const { idempotency } = repositories;
+
+      expect(await idempotency.claim('dev_i1', 'k1', 'hash')).toEqual({ outcome: 'NEW' });
+      await idempotency.complete('dev_i1', 'k1', response);
+
+      expect(await idempotency.claim('dev_i1', 'k1', 'hash')).toEqual({ outcome: 'REPLAY', response });
+    });
+
+    it('treats a different body or an unfinished request as a conflict', async () => {
+      const { idempotency } = repositories;
+      await idempotency.claim('dev_i1', 'k2', 'hash');
+
+      expect(await idempotency.claim('dev_i1', 'k2', 'hash')).toEqual({ outcome: 'CONFLICT' });
+      await idempotency.complete('dev_i1', 'k2', response);
+      expect(await idempotency.claim('dev_i1', 'k2', 'other')).toEqual({ outcome: 'CONFLICT' });
+    });
+
+    it('lets a failed request try again with the same key', async () => {
+      const { idempotency } = repositories;
+      await idempotency.claim('dev_i1', 'k3', 'hash');
+      await idempotency.release('dev_i1', 'k3');
+
+      expect(await idempotency.claim('dev_i1', 'k3', 'hash')).toEqual({ outcome: 'NEW' });
+    });
+
+    it('keeps keys separate per device', async () => {
+      await repositories.idempotency.claim('dev_i1', 'shared', 'hash');
+
+      expect(await repositories.idempotency.claim('dev_i2', 'shared', 'hash')).toEqual({ outcome: 'NEW' });
     });
   });
 });

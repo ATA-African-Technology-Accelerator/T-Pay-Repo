@@ -1,4 +1,4 @@
-import type { Device, TransactionEvent } from '../../src/services/ports';
+import type { Device, TransactionEvent, Vault } from '../../src/services/ports';
 
 
 
@@ -30,5 +30,21 @@ export const transaction = (
   voucherId: 'vch_1',
   paypalReferenceId: 'SANDBOX-CAPTURE',
   occurredAt: new Date('2026-11-06T10:00:00.000Z'),
+  ...overrides,
+});
+
+export const vault = (name: string, deviceId: string, overrides: Partial<Vault> = {}): Vault => ({
+  id: `vlt_${name}`,
+  deviceId,
+  status: 'PENDING_APPROVAL',
+  amountNgnMinor: 1_000_000,
+  authorisedUsdMinor: 667,
+  fxRate: '1500.00',
+  durationHours: 24,
+  paypalOrderId: `ORDER-${name}`,
+  paypalAuthorizationId: null,
+  spendBy: null,
+  settleBy: null,
+  createdAt: new Date('2026-11-06T10:00:00.000Z'),
   ...overrides,
 });
