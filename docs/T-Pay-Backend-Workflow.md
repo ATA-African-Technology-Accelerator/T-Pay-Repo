@@ -120,9 +120,8 @@ Offline activities ACT-01, ACT-06 to ACT-09, ACT-16 and ACT-17 have no endpoint.
 | `devices` | `id`, `key_id`, `public_key`, `display_name`, `payout_email`, `revoked_at` | Unique `public_key` |
 | `device_tokens` | `device_id`, `token_hash`, `created_at` | Store only a hash |
 | `vaults` | `id`, `device_id`, `paypal_order_id`, `paypal_authorization_id`, amounts, `fx_rate`, `status`, `spend_by`, `settle_by` | One open vault per device |
-| `vouchers` | `id`, `vault_id`, `sequence`, `payload_hash`, `payload`, `payee_key_id`, amounts, `status`, `paypal_capture_id` | Unique `vault_id, sequence` |
-| `settlement_attempts` | `id`, `voucher_id`, `paypal_request_id`, `state`, `next_attempt_at` | One active attempt per voucher |
-| `ledger_entries` | `id`, `merchant_device_id`, `type`, `amount_usd_minor`, `voucher_id`, `withdrawal_id` | Unique credit per voucher |
+| `vouchers` | `id`, `vault_id`, `sequence`, `payload_hash`, `payload`, `payer_device_id`, `payee_device_id`, amounts, `status`, `paypal_capture_id`, `attempts`, `next_attempt_at`, `lease_until` | Unique `vault_id, sequence` |
+| `ledger_entries` | `id`, `device_id`, `type`, `amount_usd_minor`, `amount_ngn_minor`, `voucher_id`, `paypal_capture_id` | Unique `voucher_id, type` |
 | `withdrawals` | `id`, `merchant_device_id`, `amount_usd_minor`, `paypal_batch_id`, `status` | Unique idempotency key |
 | `paypal_events` | `event_id`, `event_type`, `payload`, `processed_at` | Unique `event_id` |
 | `idempotency_keys` | `key`, `device_id`, `request_hash`, `response` | Unique `device_id, key` |
@@ -145,7 +144,7 @@ Offline activities ACT-01, ACT-06 to ACT-09, ACT-16 and ACT-17 have no endpoint.
 11. On timeout or 5xx, read PayPal first, then either complete or schedule a retry.
 12. On expired or declined authorisation, set `SETTLEMENT_BLOCKED`.
 
-Captures on one vault are serialised. A retry never runs until a read-back proves that no capture exists.
+Captures on one vault are serialised with a voucher lease taken under the vault row lock. A retry never runs until a read-back of the order finds no capture for that voucher.
 
 ### 7.2 Vault close
 

@@ -210,9 +210,9 @@ Response `200`:
 }
 ```
 
-When nothing blocks release, `status` is `CLOSED`, `releasedAt` is set, and `releaseScheduledFor` is null.
+When nothing blocks release, `status` is `CLOSED`, `releasedAt` is set, and `releaseScheduledFor` is null. `blockingVoucherIds` lists only vouchers the backend has seen, so it can be empty while `status` is `SPEND_CLOSED` if a declared voucher has not arrived yet. Repeating melt is safe, and the first signed statement stands. A blocked vault stays `BLOCKED` until `settleBy`.
 
-Errors: `VAULT_NOT_FOUND`, `INVALID_SIGNATURE`, `PAYPAL_UNAVAILABLE`.
+Errors: `VAULT_NOT_FOUND`, `INVALID_SIGNATURE`, `IDEMPOTENCY_CONFLICT`, `PAYPAL_UNAVAILABLE`.
 
 ### 4.7 POST /vouchers
 
@@ -241,11 +241,13 @@ Response `200` when terminal, `202` while settlement continues:
 
 A repeated identical voucher returns its stored result with `replay: true` and makes no PayPal call. Verification failures return an error. Settlement outcomes such as `REJECTED_OVERSPEND` return `200` with that status.
 
-Errors: `INVALID_SIGNATURE`, `INVALID_CERTIFICATE`, `VOUCHER_EXPIRED`, `NOT_A_PARTY`.
+`Idempotency-Key` is not needed here. A voucher above a signed spend statement, or on a closed or blocked vault, returns `200` with `SETTLEMENT_BLOCKED`. On `REJECTED_CONFLICT`, `voucherId` is the voucher already stored for that sequence.
+
+Errors: `VALIDATION_FAILED`, `VAULT_NOT_FOUND`, `INVALID_SIGNATURE`, `INVALID_CERTIFICATE`, `VOUCHER_EXPIRED`, `NOT_A_PARTY`.
 
 ### 4.8 GET /vouchers
 
-Called by ACT-10 after each submission pass. Query: `since` is an optional cursor, and `limit` defaults to 50.
+Called by ACT-10 after each submission pass. Newest first. Query: `since` is an optional cursor from `nextCursor`, and `limit` is 1 to 100, default 50.
 
 ```json
 {
@@ -270,6 +272,10 @@ Called by ACT-10 after each submission pass. Query: `since` is an optional curso
 ```
 
 ### 4.9 GET /vouchers/{id}
+
+Called by ACT-11. Returns one voucher in the same shape as an item in section 4.8, for the payer or payee only.
+
+Errors: `VOUCHER_NOT_FOUND`.
 
 Called by ACT-11. Returns one list item. Errors: `VOUCHER_NOT_FOUND`.
 
@@ -350,7 +356,7 @@ Errors: `AI_UNAVAILABLE`, `VALIDATION_FAILED`.
 
 ### 4.13 POST /webhooks/paypal
 
-Called by PayPal. The handler verifies the signature, stores the event identifier, and applies the event once.
+Called by PayPal. The handler verifies the signature, stores the event identifier, and applies the event once. A refund or reversal moves a settled voucher to `SETTLEMENT_BLOCKED` and adds a `REVERSAL` ledger entry. A bad signature returns `INVALID_SIGNATURE`.
 
 ### 4.14 GET /health
 
@@ -458,7 +464,7 @@ The app shows translated text for each code. These never come from the backend.
 | `INVALID_CERTIFICATE` | A certificate is fake, expired or for the wrong device |
 | `INVALID_SIGNATURE` | The signed data was changed or forged |
 | `REQUEST_EXPIRED` | The merchant's payment request expired |
-| `REQUEST_MISMATCH` | The voucher doesn't match this payment request |
+| `REQUEST_MISMATCH` | The voucher doesn't match this payment request, or its dollar amount doesn't match the rate |
 | `VAULT_EXPIRED` | The vault can no longer be spent |
 | `INSUFFICIENT_VAULT_CAPACITY` | The vault doesn't have enough left |
 | `WRONG_PAYEE` | The voucher is for another merchant |
