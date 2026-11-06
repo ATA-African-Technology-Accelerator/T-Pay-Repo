@@ -62,8 +62,7 @@ export class RegisterDevice {
 
 
   private async assertProof(request: RegisterDeviceRequest): Promise<void> {
-    const { proof, ...fields } = request;
-    const payload: RegistrationProofPayload = { ...fields, payoutEmail: fields.payoutEmail ?? null };
+    const { proof, ...payload } = request;
     const valid = await this.dependencies.signer.verify(
       signingInput(MESSAGE_PREFIX.REGISTRATION, payload),
       proof,
@@ -83,9 +82,8 @@ export class RegisterDevice {
       publicKey: request.publicKey,
       tokenHash,
       displayName: request.displayName,
-      role: request.role,
       language: request.language,
-      payoutEmail: request.payoutEmail ?? null,
+      payoutEmail: request.payoutEmail,
       createdAt: clock.now(),
       revokedAt: null,
     };
@@ -101,7 +99,6 @@ export class RegisterDevice {
         keyId: device.keyId,
         publicKey: device.publicKey,
         displayName: device.displayName,
-        role: device.role,
         expiresAt: new Date(clock.now().getTime() + CERTIFICATE_LIFETIME_MS).toISOString(),
       },
       rootPrivateKey,

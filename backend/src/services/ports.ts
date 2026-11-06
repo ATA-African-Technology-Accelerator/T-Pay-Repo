@@ -1,4 +1,4 @@
-import type { DeviceRole, Language } from '@tpay/shared/contracts/statuses';
+import type { Language } from '@tpay/shared/contracts/statuses';
 
 
 
@@ -9,9 +9,8 @@ export interface Device {
   publicKey: string;
   tokenHash: string;
   displayName: string;
-  role: DeviceRole;
   language: Language;
-  payoutEmail: string | null;
+  payoutEmail: string;
   createdAt: Date;
   revokedAt: Date | null;
 }
