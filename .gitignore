@@ -6,7 +6,7 @@ coverage/
 docs/.build/
 *.log
 .env*
-!.env.examplei created a branch backend w
+!.env.example
 
 
 **/.env
